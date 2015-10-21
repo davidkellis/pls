@@ -115,9 +115,9 @@ object DayalMcGregor {
       var indexOfLargestEigenvalue: Int = 0
       var i: Int = 0
 
-      println("***")
-      println(X.t)
-      println(Y)
+//      println("***")
+//      println(X.t)
+//      println(Y)
 
       var XY: DenseMatrix[Double] = X.t * Y // compute the covariance matrices; (K x M) matrix
       val XX: DenseMatrix[Double] = X.t * X // (K x K) matrix
@@ -166,5 +166,22 @@ object DayalMcGregor {
       X*model.Beta
     }
   }
+}
 
+object Csv {
+  // Reads a CSV file into a pair of matrices representing the predictor variables and the response variables
+  // Assumes the leftmost M columns in the CSV are the response variables, followed by the remaining columns holding the predictor variables
+  // Returns a pair of matrices of the form (predictor matrix, response matrix)
+  def read(filename: String, M: Int): (DenseMatrix[Double], DenseMatrix[Double]) = {
+    val file = new java.io.File(filename)
+    val csvMatrix = csvread(file)
+
+    // M is the number of response variables
+    val N = csvMatrix.rows       // number of rows
+    val K = csvMatrix.cols - M   // number of predictor variables
+
+    val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N × K)
+    val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N × M)
+
+  }
 }
