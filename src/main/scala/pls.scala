@@ -32,6 +32,13 @@ object Utils {
 }
 
 object Standardize {
+  case class StandardizationFactors(
+    xMean: DenseVector[Double],
+    yMean: DenseVector[Double],
+    xStdDev: DenseVector[Double],
+    yStdDev: DenseVector[Double]
+  )
+
   // The average of each column is subtracted from all the values in corresponding column.
   // As a result of centering, the columns of the centered matrix have a mean of 0.
   // See Applied Predictive Modeling, page 30-31.
@@ -68,7 +75,13 @@ object DayalMcGregor {
   // P - PLS loadings matrix for X (K × A)
   // Q - PLS loadings matrix for Y (M × A)
   // R - PLS weights matrix to compute scores T directly from original X (K × A)
-  case class Model(Beta: DenseMatrix[Double], W: DenseMatrix[Double], P: DenseMatrix[Double], Q: DenseMatrix[Double], R: DenseMatrix[Double])
+  case class Model(
+    Beta: DenseMatrix[Double],
+    W: DenseMatrix[Double],
+    P: DenseMatrix[Double],
+    Q: DenseMatrix[Double],
+    R: DenseMatrix[Double]
+  )
 
   object Algorithm2 extends PlsModel[Model]{
     // X - predictor variables matrix (N × K)
@@ -102,15 +115,15 @@ object DayalMcGregor {
       val K = X.cols // number of columns in X - number of predictor variables
       val M = Y.cols // number of columns in Y - number of response variables
       val N = X.rows // number of rows in X === number of rows in Y - number of observations of predictor and response variables
-      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A) // (K × A)
-      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A) // (K × A)
-      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A) // (M × A)
-      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A) // (K × A)
-      var YtXXtY: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, M) // (M x M) matrix
-      var w_a: DenseVector[Double] = DenseVector.zeros[Double](K) // (K x 1) - column vector of W
-      var p_a: DenseVector[Double] = DenseVector.zeros[Double](M) // (K x 1) - column vector of P
-      var q_a: DenseVector[Double] = DenseVector.zeros[Double](M) // (M x 1) - column vector of Q
-      var r_a: DenseVector[Double] = DenseVector.zeros[Double](K) // (K x 1) - column vector of R
+      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
+      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
+      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A)        // (M × A)
+      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
+      var YtXXtY: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, M)   // (M x M) matrix
+      var w_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of W
+      var p_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (K x 1) - column vector of P
+      var q_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (M x 1) - column vector of Q
+      var r_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of R
       var tt: Double = 0.0
       var indexOfLargestEigenvalue: Int = 0
       var i: Int = 0
@@ -119,36 +132,54 @@ object DayalMcGregor {
 //      println(X.t)
 //      println(Y)
 
-      var XY: DenseMatrix[Double] = X.t * Y // compute the covariance matrices; (K x M) matrix
-      val XX: DenseMatrix[Double] = X.t * X // (K x K) matrix
+      var XY: DenseMatrix[Double] = X.t * Y                               // compute the covariance matrices; (K x M) matrix
+      val XX: DenseMatrix[Double] = X.t * X                               // (K x K) matrix
       for (a <- 1 to A) {
+
+        println("XY")
+        println(XY)
+        println("XX")
+        println(XX)
+
         // A = number of PLS components to compute
         i = a - 1 // i is the zero-based index; a is the 1-based index
 
         if (M == 1) {
           // if there is a single response variable, compute the X-weights as:
-          w_a = XY.toDenseVector // in this case, XY (K x M) is a column vector (K x 1) since M == 1
+          w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
         } else {
           // otherwise there are multiple response variables, so compute the X-weights as:
           // The source code of pls/R/kernelpls.fit.R in R's "pls" package (see https://cran.r-project.org/web/packages/pls/index.html
           // or http://mevik.net/work/software/pls.html) states that YtXXtY is a symmetric matrix.
           // The fact that YtXXtY is **wonderful** because all eigenvalues of a real-valued symmetric matrix are real values.
           // Otherwise, we'd have to potentially handle Complex-valued eigenvalues.
-          YtXXtY = XY.t * XY // XY.t * XY is an (M x M) matrix
-          val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY) // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
-          indexOfLargestEigenvalue = argmax(eigenvalues) // find index of largest eigenvalue
-          q_a = eigenvectors(::, indexOfLargestEigenvalue) // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
-          w_a = XY * q_a // compute X-weights; w_a is (K x 1)
+          YtXXtY = XY.t * XY                                              // XY.t * XY is an (M x M) matrix
+          val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
+          indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
+          q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
+          w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1)
         }
-        w_a = w_a / sqrt(w_a.t * w_a) // normalize w_a to unity
-        r_a = w_a // loop to compute r_a
+        println("before w_a")
+        println(w_a)
+
+        w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity
+        r_a = w_a                                                         // loop to compute r_a
         for (j <- 1 to (a - 1)) {
           r_a = r_a - (P(::, j).t * w_a) * R(::, j)
         }
-        tt = r_a.t * XX * r_a // compute t't - (1 x 1)
-        p_a = (r_a.t * XX).t / tt // X-loadings
-        q_a = (r_a.t * XY).t / tt // Y-loadings
-        XY = XY - (p_a * q_a.t) * tt // XtY deflation
+        tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1)
+        p_a = (r_a.t * XX).t / tt                                         // X-loadings
+        q_a = (r_a.t * XY).t / tt                                         // Y-loadings
+        XY = XY - (p_a * q_a.t) * tt                                      // XtY deflation
+
+        println("w_a")
+        println(w_a)
+        println("p_a")
+        println(p_a)
+        println("q_a")
+        println(q_a)
+        println("r_a")
+        println(r_a)
 
         // update loadings and weights
         W(::, i) := w_a
@@ -161,7 +192,8 @@ object DayalMcGregor {
       Model(beta, W, P, Q, R)
     }
 
-    // Y = X*B+e
+    // Y = X*B + e
+    // predict just ignores the error term, since it only consists of the residuals
     def predict(model: Model, X: DenseMatrix[Double]): DenseMatrix[Double] = {
       X*model.Beta
     }
@@ -183,5 +215,14 @@ object Csv {
     val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N × K)
     val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N × M)
 
+    (0 until M).foreach { c =>
+      Y(::, c) := csvMatrix(::, c)
+    }
+
+    (M until csvMatrix.cols).foreach { c =>
+      X(::, c - M) := csvMatrix(::, c)
+    }
+
+    (X, Y)
   }
 }
