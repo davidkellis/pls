@@ -177,7 +177,7 @@ class PlsSpec extends FlatSpec {
       86.84622,
       89.18925,
       87.09116
-    )
+    ).toDenseMatrix.t
 
     assert(approxY === expectedApproxY)
   }

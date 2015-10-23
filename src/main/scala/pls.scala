@@ -192,7 +192,7 @@ object DayalMcGregor {
       var r_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of R
       var tt: Double = 0.0
       var indexOfLargestEigenvalue: Int = 0
-      var i: Int = 0
+      var j: Int = 0
 
 //      println("***")
 //      println(X.t)
@@ -200,15 +200,13 @@ object DayalMcGregor {
 
       var XY: DenseMatrix[Double] = X.t * Y                               // compute the covariance matrices; (K x M) matrix
       val XX: DenseMatrix[Double] = X.t * X                               // (K x K) matrix
-      for (a <- 1 to A) {
+      // A = number of PLS components to compute
+      for (a <- 0 to (A - 1)) {
 
 //        println("XY")
 //        println(XY)
 //        println("XX")
 //        println(XX)
-
-        // A = number of PLS components to compute
-        i = a - 1 // i is the zero-based index; a is the 1-based index
 
         if (M == 1) {
           // if there is a single response variable, compute the X-weights as:
@@ -230,7 +228,7 @@ object DayalMcGregor {
 
         w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity - the denominator is a scalar
         r_a = w_a                                                         // loop to compute r_a
-        for (j <- 1 to (a - 1)) {
+        for (j <- 0 to (a - 1)) {
           r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
         }
         tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
@@ -248,10 +246,10 @@ object DayalMcGregor {
 //        println(r_a)
 
         // update loadings and weights
-        W(::, i) := w_a
-        P(::, i) := p_a
-        Q(::, i) := q_a
-        R(::, i) := r_a
+        W(::, a) := w_a
+        P(::, a) := p_a
+        Q(::, a) := q_a
+        R(::, a) := r_a
       }
       val beta = R * Q.t // compute the regression coefficients; (K x M)
 
