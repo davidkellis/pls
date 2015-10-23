@@ -33,24 +33,77 @@ object Utils {
 
 object Standardize {
   case class StandardizationFactors(
-    xMean: DenseVector[Double],
-    yMean: DenseVector[Double],
-    xStdDev: DenseVector[Double],
-    yStdDev: DenseVector[Double]
+    meanOfColumns: DenseMatrix[Double],     // meanOfColumns is a row vector
+    stdDevOfColumns: DenseMatrix[Double]    // stdDevOfColumns is a row vector
   )
+
+
+  ////////////////////// Mean Centering //////////////////////
+
+  // M is a (R x C) matrix
+  // meanOfColumnsInM is a (1 x C) matrix
+  def meanCenterColumnsWithMeans(M: DenseMatrix[Double], meanOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = M - Utils.vertcat(meanOfColumnsInM, M.rows)
 
   // The average of each column is subtracted from all the values in corresponding column.
   // As a result of centering, the columns of the centered matrix have a mean of 0.
   // See Applied Predictive Modeling, page 30-31.
-  def meanCenterColumns(M: DenseMatrix[Double]): DenseMatrix[Double] = M - Utils.vertcat(Utils.meanColumns(M), M.rows)
+  // Returns a pair of matrices (meanCenteredM, meanOfColumnsInM)
+  def meanCenterColumns2(M: DenseMatrix[Double]): (DenseMatrix[Double], DenseMatrix[Double]) = {
+    val meanOfColumnsInM = Utils.meanColumns(M)
+    val meanCenteredM = meanCenterColumnsWithMeans(M, meanOfColumnsInM)
+    (meanCenteredM, meanOfColumnsInM)
+  }
+
+  // Returns the mean-centered version of M
+  def meanCenterColumns(M: DenseMatrix[Double]): DenseMatrix[Double] = meanCenterColumns2(M)._1
+
+  def denormalizeMeanCenteredColumns(meanCenteredM: DenseMatrix[Double], meanOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = {
+    meanCenteredM + Utils.vertcat(meanOfColumnsInM, meanCenteredM.rows)
+  }
+
+  ////////////////////// Scaling //////////////////////
+
+  // M is a (R x C) matrix
+  // meanOfColumnsInM is a (1 x C) matrix
+  def scaleColumnsWithStdDevs(M: DenseMatrix[Double], stdDevOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = M :/ Utils.vertcat(stdDevOfColumnsInM, M.rows)
 
   // To scale the data, every value within each specific column is divided by the column-specific standard deviation.
-  // Each column of the scaled matrix has a standard deviaion of 1.
+  // Each column of the scaled matrix has a standard deviation of 1.
   // See Applied Predictive Modeling, page 30-31.
-  def scaleColumns(M: DenseMatrix[Double]): DenseMatrix[Double] = M / Utils.vertcat(Utils.stddevColumns(M), M.rows)
+  // Returns a pair of matrices (scaledM, stdDevOfColumnsInM)
+  def scaleColumns2(M: DenseMatrix[Double]): (DenseMatrix[Double], DenseMatrix[Double]) = {
+    val stdDevOfColumnsInM = Utils.stddevColumns(M)
+    val scaledM = scaleColumnsWithStdDevs(M, stdDevOfColumnsInM)
+    (scaledM, stdDevOfColumnsInM)
+  }
+
+  // Returns the standard-deviation-scaled version of M
+  def scaleColumns(M: DenseMatrix[Double]): DenseMatrix[Double] = scaleColumns2(M)._1
+
+  def denormalizeScaledColumns(scaledM: DenseMatrix[Double], stdDevOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = {
+    scaledM :* Utils.vertcat(stdDevOfColumnsInM, scaledM.rows)
+  }
+
+
+  ////////////////////// Scaling and Mean Centering //////////////////////
+
+  def centerAndScaleColumnsWithFactors(M: DenseMatrix[Double], meanOfColumnsInM: DenseMatrix[Double], stdDevOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = {
+    scaleColumnsWithStdDevs(meanCenterColumnsWithMeans(M, meanOfColumnsInM), stdDevOfColumnsInM)
+  }
+
+  // mean center and then scale each column of the given matrix, M, returning the pair (scaledMeanCenteredM, StandardizationFactors(meanOfColumnsInM, stdDevOfMeanCenteredColumnsInM))
+  def centerAndScaleColumnsReturningFactors(M: DenseMatrix[Double]): (DenseMatrix[Double], StandardizationFactors) = {
+    val (meanCenteredM, meanOfColumnsInM) = meanCenterColumns2(M)
+    val (scaledMeanCenteredM, stdDevOfMeanCenteredColumnsInM) = scaleColumns2(meanCenteredM)
+    (scaledMeanCenteredM, StandardizationFactors(meanOfColumnsInM, stdDevOfMeanCenteredColumnsInM))
+  }
 
   // mean center and then scale each column of the given matrix, M
   def centerAndScaleColumns(M: DenseMatrix[Double]): DenseMatrix[Double] = scaleColumns(meanCenterColumns(M))
+
+  def denormalizeCenteredAndScaledColumns(standardizedM: DenseMatrix[Double], meanOfColumnsInM: DenseMatrix[Double], stdDevOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = {
+    denormalizeMeanCenteredColumns(denormalizeScaledColumns(standardizedM, stdDevOfColumnsInM), meanOfColumnsInM)
+  }
 }
 
 //abstract class PlsModel[ModelT](var model: ModelT) {
@@ -61,12 +114,21 @@ object Standardize {
 //  def predict(X: DenseMatrix[Double]): DenseMatrix[Double]
 //}
 
+case class StandardizedModel[ModelT](
+  model: ModelT,
+  standardizationFactorsX: Standardize.StandardizationFactors,
+  standardizationFactorsY: Standardize.StandardizationFactors
+)
+
 trait PlsModel[ModelT] {
   // X - predictor variables matrix (N × K)
   // Y - response variables matrix (N × M)
   // A - is the number of latent variables (a.k.a. components) to use
   def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): ModelT
   def predict(model: ModelT, X: DenseMatrix[Double]): DenseMatrix[Double]
+
+  def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[ModelT]
+  def standardizeAndPredict(standardizedModel: StandardizedModel[ModelT], X: DenseMatrix[Double]): DenseMatrix[Double]
 }
 
 object DayalMcGregor {
@@ -103,6 +165,10 @@ object DayalMcGregor {
     // A - number of components in PLS model
     // a - integer counter for latent variable dimension.
 
+    // converts a (1 x 1) DenseMatrix[T] or DenseVector[T] to a T
+    def scalar[T](x: DenseMatrix[T]): T = x(0, 0)
+    def scalar[T](x: DenseVector[T]): T = x(0)
+
     /**
      * Implements "Modified kernel algorithm #2" as described in Dayal and MacGregor's "Improved PLS Algorithms" paper,
      * published in Journal of Chemometrics, Volume 11, Issue 1, pages 73–85, January 1997.
@@ -136,10 +202,10 @@ object DayalMcGregor {
       val XX: DenseMatrix[Double] = X.t * X                               // (K x K) matrix
       for (a <- 1 to A) {
 
-        println("XY")
-        println(XY)
-        println("XX")
-        println(XX)
+//        println("XY")
+//        println(XY)
+//        println("XX")
+//        println(XX)
 
         // A = number of PLS components to compute
         i = a - 1 // i is the zero-based index; a is the 1-based index
@@ -157,29 +223,29 @@ object DayalMcGregor {
           val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
           indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
           q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
-          w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1)
+          w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
         }
-        println("before w_a")
-        println(w_a)
+//        println("before w_a")
+//        println(w_a)
 
-        w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity
+        w_a = (w_a :/ sqrt(w_a.t * w_a))                                  // normalize w_a to unity - the denominator is a scalar
         r_a = w_a                                                         // loop to compute r_a
         for (j <- 1 to (a - 1)) {
-          r_a = r_a - (P(::, j).t * w_a) * R(::, j)
+          r_a = r_a - ( (P(::, j).t * w_a) :* R(::, j) )                  // (K x 1) - ( (1 × K) * (K x 1) ) * (K × 1) === (K x 1) - scalar * (K × 1)
         }
-        tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1)
-        p_a = (r_a.t * XX).t / tt                                         // X-loadings
-        q_a = (r_a.t * XY).t / tt                                         // Y-loadings
-        XY = XY - (p_a * q_a.t) * tt                                      // XtY deflation
+        tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
+        p_a = (r_a.t * XX).t :/ tt                                        // X-loadings
+        q_a = (r_a.t * XY).t :/ tt                                        // Y-loadings
+        XY = XY - ((p_a * q_a.t) :* tt)                                   // XtY deflation
 
-        println("w_a")
-        println(w_a)
-        println("p_a")
-        println(p_a)
-        println("q_a")
-        println(q_a)
-        println("r_a")
-        println(r_a)
+//        println("w_a")
+//        println(w_a)
+//        println("p_a")
+//        println(p_a)
+//        println("q_a")
+//        println(q_a)
+//        println("r_a")
+//        println(r_a)
 
         // update loadings and weights
         W(::, i) := w_a
@@ -192,11 +258,27 @@ object DayalMcGregor {
       Model(beta, W, P, Q, R)
     }
 
-    // Y = X*B + e
+    // Y = X * B + e
     // predict just ignores the error term, since it only consists of the residuals
     def predict(model: Model, X: DenseMatrix[Double]): DenseMatrix[Double] = {
-      X*model.Beta
+      X * model.Beta
     }
+
+    def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[Model] = {
+      val (standardizedX, factorsX) = Standardize.centerAndScaleColumnsReturningFactors(X)
+      val (standardizedY, factorsY) = Standardize.centerAndScaleColumnsReturningFactors(Y)
+      val model = train(standardizedX, standardizedY, A)
+      StandardizedModel(model, factorsX, factorsY)
+    }
+
+    def standardizeAndPredict(standardizedModel: StandardizedModel[Model], X: DenseMatrix[Double]): DenseMatrix[Double] = {
+      val factorsX = standardizedModel.standardizationFactorsX
+      val factorsY = standardizedModel.standardizationFactorsX
+      val standardizedX = Standardize.centerAndScaleColumnsWithFactors(X, factorsX.meanOfColumns, factorsX.stdDevOfColumns)
+      val standardizedEstimateY = predict(standardizedModel.model, standardizedX)
+      Standardize.denormalizeCenteredAndScaledColumns(standardizedEstimateY, factorsY.meanOfColumns, factorsY.stdDevOfColumns)
+    }
+
   }
 }
 
