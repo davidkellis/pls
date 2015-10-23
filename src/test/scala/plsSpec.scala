@@ -131,6 +131,7 @@ class PlsSpec extends FlatSpec {
     val Y = DenseVector(2.0, 4.0, 6.0, 8.0, 10.0).toDenseMatrix.t             // (5 x 1) matrix
 
     val model = DayalMcGregor.Algorithm2.train(X, Y, 2)
+    println(model)
 
     val expectedY = DenseVector(18.0).toDenseMatrix.t
     val approxY = DayalMcGregor.Algorithm2.predict(model, DenseMatrix((9.0, 18.0)))
@@ -138,6 +139,7 @@ class PlsSpec extends FlatSpec {
     assert(approxY === expectedY)
 
     val model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(X, Y, 2)
+    println(model2)
     val approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, DenseMatrix((9.0, 18.0)))
     assert(approxY2 === expectedY)
   }

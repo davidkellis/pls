@@ -107,8 +107,8 @@ object Standardize {
 }
 
 //abstract class PlsModel[ModelT](var model: ModelT) {
-//  // X - predictor variables matrix (N × K)
-//  // Y - response variables matrix (N × M)
+//  // X - predictor variables matrix (N x K)
+//  // Y - response variables matrix (N x M)
 //  // A - is the number of latent variables (a.k.a. components) to use
 //  def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): ModelT
 //  def predict(X: DenseMatrix[Double]): DenseMatrix[Double]
@@ -121,8 +121,8 @@ case class StandardizedModel[ModelT](
 )
 
 trait PlsModel[ModelT] {
-  // X - predictor variables matrix (N × K)
-  // Y - response variables matrix (N × M)
+  // X - predictor variables matrix (N x K)
+  // Y - response variables matrix (N x M)
   // A - is the number of latent variables (a.k.a. components) to use
   def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): ModelT
   def predict(model: ModelT, X: DenseMatrix[Double]): DenseMatrix[Double]
@@ -132,11 +132,11 @@ trait PlsModel[ModelT] {
 }
 
 object DayalMcGregor {
-  // Beta - PLS regression coefficients matrix (K × M)
-  // W - PLS weights matrix for X (K × A)
-  // P - PLS loadings matrix for X (K × A)
-  // Q - PLS loadings matrix for Y (M × A)
-  // R - PLS weights matrix to compute scores T directly from original X (K × A)
+  // Beta - PLS regression coefficients matrix (K x M)
+  // W - PLS weights matrix for X (K x A)
+  // P - PLS loadings matrix for X (K x A)
+  // Q - PLS loadings matrix for Y (M x A)
+  // R - PLS weights matrix to compute scores T directly from original X (K x A)
   case class Model(
     Beta: DenseMatrix[Double],
     W: DenseMatrix[Double],
@@ -146,14 +146,14 @@ object DayalMcGregor {
   )
 
   object Algorithm2 extends PlsModel[Model]{
-    // X - predictor variables matrix (N × K)
-    // Y - response variables matrix (N × M)
-    // B_PLS - PLS regression coefficients matrix (K × M)
-    // W - PLS weights matrix for X (K × A)
-    // P - PLS loadings matrix for X (K × A)
-    // Q - PLS loadings matrix for Y (M × A)
-    // R - PLS weights matrix to compute scores T directly from original X (K × A)
-    // T - PLS scores matrix of X (N × A)
+    // X - predictor variables matrix (N x K)
+    // Y - response variables matrix (N x M)
+    // B_PLS - PLS regression coefficients matrix (K x M)
+    // W - PLS weights matrix for X (K x A)
+    // P - PLS loadings matrix for X (K x A)
+    // Q - PLS loadings matrix for Y (M x A)
+    // R - PLS weights matrix to compute scores T directly from original X (K x A)
+    // T - PLS scores matrix of X (N x A)
     // w_a - a column vector of W
     // p_a - a column vector of P
     // q_a - a column vector of Q
@@ -181,10 +181,10 @@ object DayalMcGregor {
       val K = X.cols // number of columns in X - number of predictor variables
       val M = Y.cols // number of columns in Y - number of response variables
       val N = X.rows // number of rows in X === number of rows in Y - number of observations of predictor and response variables
-      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
-      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
-      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A)        // (M × A)
-      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K × A)
+      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
+      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
+      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A)        // (M x A)
+      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
       var YtXXtY: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, M)   // (M x M) matrix
       var w_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of W
       var p_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (K x 1) - column vector of P
@@ -228,15 +228,15 @@ object DayalMcGregor {
 //        println("before w_a")
 //        println(w_a)
 
-        w_a = (w_a :/ sqrt(w_a.t * w_a))                                  // normalize w_a to unity - the denominator is a scalar
+        w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity - the denominator is a scalar
         r_a = w_a                                                         // loop to compute r_a
         for (j <- 1 to (a - 1)) {
-          r_a = r_a - ( (P(::, j).t * w_a) :* R(::, j) )                  // (K x 1) - ( (1 × K) * (K x 1) ) * (K × 1) === (K x 1) - scalar * (K × 1)
+          r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
         }
         tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
-        p_a = (r_a.t * XX).t :/ tt                                        // X-loadings
-        q_a = (r_a.t * XY).t :/ tt                                        // Y-loadings
-        XY = XY - ((p_a * q_a.t) :* tt)                                   // XtY deflation
+        p_a = (r_a.t * XX).t / tt                                         // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
+        q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
+        XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
 
 //        println("w_a")
 //        println(w_a)
@@ -294,8 +294,8 @@ object Csv {
     val N = csvMatrix.rows       // number of rows
     val K = csvMatrix.cols - M   // number of predictor variables
 
-    val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N × K)
-    val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N × M)
+    val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N x K)
+    val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N x M)
 
     (0 until M).foreach { c =>
       Y(::, c) := csvMatrix(::, c)
