@@ -45,13 +45,29 @@ object Standardize {
   def meanCenterColumnsWithMeans(M: DenseMatrix[Double], meanOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = M - Utils.vertcat(meanOfColumnsInM, M.rows)
 
   // The average of each column is subtracted from all the values in corresponding column.
-  // As a result of centering, the columns of the centered matrix have a mean of 0.
+  // As a result of centering, the columns of the centered matrix have a mean of 0. This property does not hold in the case that a column contains a single distinct value, V - in
+  // that case, the column is treated as having mean 0, and the mean of the mean-centered column would be V.
   // See Applied Predictive Modeling, page 30-31.
   // Returns a pair of matrices (meanCenteredM, meanOfColumnsInM)
   def meanCenterColumns2(M: DenseMatrix[Double]): (DenseMatrix[Double], DenseMatrix[Double]) = {
     val meanOfColumnsInM = Utils.meanColumns(M)
-    val meanCenteredM = meanCenterColumnsWithMeans(M, meanOfColumnsInM)
-    (meanCenteredM, meanOfColumnsInM)
+
+    // We don't want the mean-centered columns to be a column of all zeros, which will will be case when a column in M is filled with a single distinct value.
+    // To prevent the mean-centered columns to be a column of all zeros, when we detect that a column contains only one distinct value, then we just
+    // consider the mean of that column to be zero. This screws up the property that every mean centered column has a mean of 0, but it allows us to have
+    // a column consisting of a single constant value. This is especially important when a predictor matrix, X, has a column of 1s, which will be the case
+    // any time we want to learn the equation of a line and we're interested in learning the y-intercept: e.g. y = x*b1 + 1*b0, where b0 is the y intercept.
+    val stdDevOfColumnsInM = Utils.stddevColumns(M)
+    val adjustedColumnMeans = meanOfColumnsInM.mapPairs { (matrixIndex, columnMean) =>
+      val (_, col) = matrixIndex
+      if (stdDevOfColumnsInM(0, col) == 0.0) {    // if std dev of column == 0.0, then all values in the column are the same, and we don't want to mean center that column
+        0.0
+      } else {
+        columnMean
+      }
+    }
+    val meanCenteredM = meanCenterColumnsWithMeans(M, adjustedColumnMeans)
+    (meanCenteredM, adjustedColumnMeans)
   }
 
   // Returns the mean-centered version of M
@@ -68,13 +84,34 @@ object Standardize {
   def scaleColumnsWithStdDevs(M: DenseMatrix[Double], stdDevOfColumnsInM: DenseMatrix[Double]): DenseMatrix[Double] = M :/ Utils.vertcat(stdDevOfColumnsInM, M.rows)
 
   // To scale the data, every value within each specific column is divided by the column-specific standard deviation.
-  // Each column of the scaled matrix has a standard deviation of 1.
+  // Each column of the scaled matrix has a standard deviation of 1 or 0. The only time a column will have a std. dev. of 0 is when
+  // the column has only one distinct value.
   // See Applied Predictive Modeling, page 30-31.
   // Returns a pair of matrices (scaledM, stdDevOfColumnsInM)
   def scaleColumns2(M: DenseMatrix[Double]): (DenseMatrix[Double], DenseMatrix[Double]) = {
     val stdDevOfColumnsInM = Utils.stddevColumns(M)
-    val scaledM = scaleColumnsWithStdDevs(M, stdDevOfColumnsInM)
-    (scaledM, stdDevOfColumnsInM)
+    // Any column in M that has a standard deviation of 0 is caused by either (1) M having zero rows,
+    // or (2) every row in the column is the same value (i.e. the column has one distinct value)
+    // If M has no rows, that doesn't cause a problem for us because an empty matrix divided by 0 results in an empty matrix.
+    // If every row in the column is the same value, V, then that's a special case, because we can't divide V by zero. To handle it,
+    // we treat the column with 0 standard deviation as having a standard deviation of V, so the scaled value, scaledV, is 1. In other words,
+    // if the column is full of a single value, V, then we treat the column as having a standard deviation of V, and then to compute the
+    // scaled value of V, we compute it with: scaledV = V / V === scaledV = 1.
+    val zeroAdjustedStandardDeviations = stdDevOfColumnsInM.mapPairs {(matrixIndex, stdDev) =>
+      val (_, col) = matrixIndex
+      if (stdDev == 0.0) {
+        if (M(0, col) == 0.0) {
+          1.0
+        } else {
+          M(0, col)
+        }
+      } else {
+        stdDev
+      }
+    }
+
+    val scaledM = scaleColumnsWithStdDevs(M, zeroAdjustedStandardDeviations)
+    (scaledM, zeroAdjustedStandardDeviations)
   }
 
   // Returns the standard-deviation-scaled version of M
@@ -145,6 +182,9 @@ object DayalMcGregor {
     R: DenseMatrix[Double]
   )
 
+  // Algorithm2 doesn't work if any column in X or Y is all zeros.
+  // Algorithm2 may be unable to train a model if X has duplicate columns, which will be the case if X has any column that is a scalar-multiple
+  //   of another column in X, and is subsequently mean-centered and scaled before being trained.
   object Algorithm2 extends PlsModel[Model]{
     // X - predictor variables matrix (N x K)
     // Y - response variables matrix (N x M)
@@ -200,14 +240,14 @@ object DayalMcGregor {
 
       var XY: DenseMatrix[Double] = X.t * Y                               // compute the covariance matrices; (K x M) matrix
       val XX: DenseMatrix[Double] = X.t * X                               // (K x K) matrix
+
+//      println("XX")
+//      println(XX)
+//      println("XY")
+//      println(XY)
+
       // A = number of PLS components to compute
       for (a <- 0 to (A - 1)) {
-
-//        println("XY")
-//        println(XY)
-//        println("XX")
-//        println(XX)
-
         if (M == 1) {
           // if there is a single response variable, compute the X-weights as:
           w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
@@ -223,19 +263,42 @@ object DayalMcGregor {
           q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
           w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
         }
-//        println("before w_a")
+
+//        println("0000000000000000000000000000000000000000000000000000000000")
+//        println("w_a")
 //        println(w_a)
+//        println("p_a")
+//        println(p_a)
+//        println("q_a")
+//        println(q_a)
+//        println("r_a")
+//        println(r_a)
 
         w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity - the denominator is a scalar
+//        println("11111111111111111111111111111 - w_a")
+//        println(w_a)
         r_a = w_a                                                         // loop to compute r_a
+//        println("22222222222222222222222222222 - r_a")
+//        println(r_a)
         for (j <- 0 to (a - 1)) {
           r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
+//          println(r_a)
         }
         tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
+//        println("33333333333333333333333333333 - tt")
+//        println(tt)
         p_a = (r_a.t * XX).t / tt                                         // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
+//        println("44444444444444444444444444444 - p_a")
+//        println(p_a)
         q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
+//        println("55555555555555555555555555555 - q_a")
+//        println(q_a)
         XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
+//        println("66666666666666666666666666666 - XY")
+//        println(XY)
 
+//        println("777777777777777777777777777777777777777777777777777777777777")
+//        println("tt", tt)
 //        println("w_a")
 //        println(w_a)
 //        println("p_a")
@@ -265,13 +328,22 @@ object DayalMcGregor {
     def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[Model] = {
       val (standardizedX, factorsX) = Standardize.centerAndScaleColumnsReturningFactors(X)
       val (standardizedY, factorsY) = Standardize.centerAndScaleColumnsReturningFactors(Y)
+//      println("standardizeAndTrain")
+//      println("standardizedX")
+//      println(standardizedX)
+//      println("factorsX")
+//      println(factorsX)
+//      println("standardizedY")
+//      println(standardizedY)
+//      println("factorsY")
+//      println(factorsY)
       val model = train(standardizedX, standardizedY, A)
       StandardizedModel(model, factorsX, factorsY)
     }
 
     def standardizeAndPredict(standardizedModel: StandardizedModel[Model], X: DenseMatrix[Double]): DenseMatrix[Double] = {
       val factorsX = standardizedModel.standardizationFactorsX
-      val factorsY = standardizedModel.standardizationFactorsX
+      val factorsY = standardizedModel.standardizationFactorsY
       val standardizedX = Standardize.centerAndScaleColumnsWithFactors(X, factorsX.meanOfColumns, factorsX.stdDevOfColumns)
       val standardizedEstimateY = predict(standardizedModel.model, standardizedX)
       Standardize.denormalizeCenteredAndScaledColumns(standardizedEstimateY, factorsY.meanOfColumns, factorsY.stdDevOfColumns)
