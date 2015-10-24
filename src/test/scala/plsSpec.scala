@@ -245,19 +245,39 @@ class PlsSpec extends FlatSpec with TestHelpers {
     val approxY = DayalMcGregor.Algorithm2.predict(model, testingX)
 
     val expectedApproxY = DenseVector(
-      86.415276708772325,
-      86.523636481215576,
-      87.663055906603887,
-      88.877998809755681,
-      81.471772544731706,
-      76.974841988336081,
-      91.211017546753922,
-      88.153958512066566,
-      92.452229485649539,
-      96.546915432217887
+      86.415276708772325,       // 88.10 is what's in testingY
+      86.523636481215576,       // 87.60 is what's in testingY
+      87.663055906603887,       // 88.35 is what's in testingY
+      88.877998809755681,       // 85.10 is what's in testingY
+      81.471772544731706,       // 85.10 is what's in testingY
+      76.974841988336081,       // 84.70 is what's in testingY
+      91.211017546753922,       // 87.20 is what's in testingY
+      88.153958512066566,       // 86.60 is what's in testingY
+      92.452229485649539,       // 89.60 is what's in testingY
+      96.546915432217887        // 87.10 is what's in testingY
     ).toDenseMatrix.t
 
     assert(approxY === expectedApproxY)
+
+
+    val expectedApproxY2 = DenseVector(
+      87.22271661912193,        // 88.10 is what's in testingY
+      87.2237286040437,         // 87.60 is what's in testingY
+      87.23436977882712,        // 88.35 is what's in testingY
+      87.24571627643478,        // 85.10 is what's in testingY
+      87.1765486403426,         // 85.10 is what's in testingY
+      87.13455126608933,        // 84.70 is what's in testingY
+      87.2675046184625,         // 87.20 is what's in testingY
+      87.23895437718481,        // 86.60 is what's in testingY
+      87.27909644574817,        // 89.60 is what's in testingY
+      87.317337209307           // 87.10 is what's in testingY
+    ).toDenseMatrix.t
+
+    val model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(trainingX, trainingY, 1)
+    val approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, testingX)
+
+    assert(approxY2 === expectedApproxY2)
+
   }
 
   it should "predict the gasoline data and yield the same error results as matlab" in {
