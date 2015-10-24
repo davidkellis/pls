@@ -254,4 +254,138 @@ class PlsSpec extends FlatSpec with TestHelpers {
 
     assert(approxY === expectedApproxY)
   }
+
+  it should "predict the gasoline data and yield the same error results as matlab" in {
+    val (trainingX, trainingY) = Csv.read("data/gasoline_train.csv", 1)    // has two columns: octane, NIR
+    val (testingX, testingY) = Csv.read("data/gasoline_test.csv", 1)
+
+    var model = DayalMcGregor.Algorithm2.train(trainingX, trainingY, 2)
+    var approxY = DayalMcGregor.Algorithm2.predict(model, testingX)
+
+    /**
+     * matlab results:
+     *
+     * >> [beta, w, p, q, r] = pls2(x,y,2)
+     *
+     * beta =
+     *
+     *    NaN
+     *
+     * w =
+     *
+     *     -1   NaN
+     *
+     * p =
+     *
+     *     -1   NaN
+     *
+     * q =
+     *
+     *    1.0e+03 *
+     *
+     *     1.6418       NaN
+     *
+     * r =
+     *
+     *     -1   NaN
+     *
+     */
+
+    assert(model.Beta(0, 0).equals(NaN))
+
+    assert(model.W(0, 0) === -1.0)
+    assert(model.W(0, 1).equals(NaN))
+
+    assert(model.P(0, 0) === -1.0)
+    assert(model.P(0, 1).equals(NaN))
+
+    assert(model.Q(0, 0) === 1641.8147339889106)
+    assert(model.Q(0, 1).equals(NaN))
+
+    assert(model.R(0, 0) === -1.0)
+    assert(model.R(0, 1).equals(NaN))
+
+    assert(approxY(0, 0).equals(NaN))
+    assert(approxY(1, 0).equals(NaN))
+    assert(approxY(2, 0).equals(NaN))
+    assert(approxY(3, 0).equals(NaN))
+    assert(approxY(4, 0).equals(NaN))
+    assert(approxY(5, 0).equals(NaN))
+    assert(approxY(6, 0).equals(NaN))
+    assert(approxY(7, 0).equals(NaN))
+    assert(approxY(8, 0).equals(NaN))
+    assert(approxY(9, 0).equals(NaN))
+
+
+    // 3 components (A = 3)
+    model = DayalMcGregor.Algorithm2.train(trainingX, trainingY, 3)
+
+    assert(model.Beta(0, 0).equals(NaN))
+
+    assert(model.W(0, 0) === -1.0)
+    assert(model.W(0, 1).equals(NaN))
+    assert(model.W(0, 2).equals(NaN))
+
+    assert(model.P(0, 0) === -1.0)
+    assert(model.P(0, 1).equals(NaN))
+    assert(model.P(0, 2).equals(NaN))
+
+    assert(model.Q(0, 0) === 1641.8147339889106)
+    assert(model.Q(0, 1).equals(NaN))
+    assert(model.Q(0, 2).equals(NaN))
+
+    assert(model.R(0, 0) === -1.0)
+    assert(model.R(0, 1).equals(NaN))
+    assert(model.R(0, 2).equals(NaN))
+
+
+    // 10 components (A = 10)
+    model = DayalMcGregor.Algorithm2.train(trainingX, trainingY, 10)
+
+    assert(model.Beta(0, 0).equals(NaN))
+
+    assert(model.W(0, 0) === -1.0)
+    assert(model.W(0, 1).equals(NaN))
+    assert(model.W(0, 2).equals(NaN))
+    assert(model.W(0, 3).equals(NaN))
+    assert(model.W(0, 4).equals(NaN))
+    assert(model.W(0, 5).equals(NaN))
+    assert(model.W(0, 6).equals(NaN))
+    assert(model.W(0, 7).equals(NaN))
+    assert(model.W(0, 8).equals(NaN))
+    assert(model.W(0, 9).equals(NaN))
+
+    assert(model.P(0, 0) === -1.0)
+    assert(model.P(0, 1).equals(NaN))
+    assert(model.P(0, 2).equals(NaN))
+    assert(model.P(0, 3).equals(NaN))
+    assert(model.P(0, 4).equals(NaN))
+    assert(model.P(0, 5).equals(NaN))
+    assert(model.P(0, 6).equals(NaN))
+    assert(model.P(0, 7).equals(NaN))
+    assert(model.P(0, 8).equals(NaN))
+    assert(model.P(0, 9).equals(NaN))
+
+    assert(model.Q(0, 0) === 1641.8147339889106)
+    assert(model.Q(0, 1).equals(NaN))
+    assert(model.Q(0, 2).equals(NaN))
+    assert(model.Q(0, 3).equals(NaN))
+    assert(model.Q(0, 4).equals(NaN))
+    assert(model.Q(0, 5).equals(NaN))
+    assert(model.Q(0, 6).equals(NaN))
+    assert(model.Q(0, 7).equals(NaN))
+    assert(model.Q(0, 8).equals(NaN))
+    assert(model.Q(0, 9).equals(NaN))
+
+    assert(model.R(0, 0) === -1.0)
+    assert(model.R(0, 1).equals(NaN))
+    assert(model.R(0, 2).equals(NaN))
+    assert(model.R(0, 3).equals(NaN))
+    assert(model.R(0, 4).equals(NaN))
+    assert(model.R(0, 5).equals(NaN))
+    assert(model.R(0, 6).equals(NaN))
+    assert(model.R(0, 7).equals(NaN))
+    assert(model.R(0, 8).equals(NaN))
+    assert(model.R(0, 9).equals(NaN))
+  }
 }
