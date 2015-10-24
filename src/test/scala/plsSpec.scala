@@ -175,6 +175,11 @@ class PlsSpec extends FlatSpec with TestHelpers {
     val approxY = DayalMcGregor.Algorithm2.predict(model, DenseMatrix((4.0, 4.0)))
 
     assert(approxY === expectedY)
+
+    val model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(X, Y, 1)
+    val approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, DenseMatrix((4.0, 4.0)))
+
+    assert(approxY2 === expectedY)
   }
 
   it should "blow up when the matlab implementation blows up; weights,loadings,etc. should match Matlab implementation" in {
