@@ -215,17 +215,55 @@ class PlsSpec extends FlatSpec with TestHelpers {
     val X = DenseMatrix((1.0, 2.0), (2.0, 4.0), (3.0, 6.0), (4.0, 8.0), (5.0, 10.0))
     val Y = DenseVector(2.0, 4.0, 6.0, 8.0, 10.0).toDenseMatrix.t             // (5 x 1) matrix
 
-    val model = DayalMcGregor.Algorithm2.train(X, Y, 2)
+    var model = DayalMcGregor.Algorithm2.train(X, Y, 2)
+    var approxY = DayalMcGregor.Algorithm2.predict(model, DenseMatrix((9.0, 18.0)))
 
     val expectedY = DenseVector(18.0).toDenseMatrix.t
-    val approxY = DayalMcGregor.Algorithm2.predict(model, DenseMatrix((9.0, 18.0)))
-
     assert(model.Beta === DenseMatrix((0.4), (0.8)))
     assert(model.W === DenseMatrix((0.447213595499958, 0.4472135954999579), (0.894427190999916, 0.8944271909999159)))
     assert(model.P === DenseMatrix((0.44721359549995787, 3.602879701896397e15), (0.8944271909999157, 7.205759403792794e15)))
     assert(model.Q === DenseMatrix((0.8944271909999157, 0.9309090909090909)))
     assert(model.R === DenseMatrix((0.447213595499958, 5.551115123125783e-17), (0.894427190999916, 1.1102230246251565e-16)))
     assert(approxY === expectedY)
+
+
+    model = DayalMcGregor.Algorithm2.train(X, Y, 1)
+    approxY = DayalMcGregor.Algorithm2.predict(model, DenseMatrix((9.0, 18.0)))
+
+    assert(approxY === expectedY)
+
+
+    var model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(X, Y, 1)
+    var approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, DenseMatrix((9.0, 18.0)))
+
+    assert(approxY2 === expectedY)
+
+
+    model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(X, Y, 2)
+    approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, DenseMatrix((9.0, 18.0)))
+
+    assert(model2.model.Beta(0,0).equals(NaN))
+    assert(model2.model.Beta(1,0).equals(NaN))
+
+    assert(model2.model.W(0,0) === 0.7071067811865475)
+    assert(model2.model.W(1,0) === 0.7071067811865475)
+    assert(model2.model.W(0,1).equals(NaN))
+    assert(model2.model.W(1,1).equals(NaN))
+
+    assert(model2.model.P(0,0) === 0.7071067811865476)
+    assert(model2.model.P(1,0) === 0.7071067811865476)
+    assert(model2.model.P(0,1).equals(NaN))
+    assert(model2.model.P(1,1).equals(NaN))
+
+    assert(model2.model.Q(0,0) === 0.7071067811865476)
+    assert(model2.model.Q(0,1).equals(NaN))
+
+    assert(model2.model.R(0,0) === 0.7071067811865475)
+    assert(model2.model.R(1,0) === 0.7071067811865475)
+    assert(model2.model.R(0,1).equals(NaN))
+    assert(model2.model.R(1,1).equals(NaN))
+
+
   }
 
   it should "predict the gasoline data and yield the same results as matlab" in {
