@@ -1,0 +1,2 @@
+-J-Xmx15G
+-J-XX:+CMSClassUnloadingEnabled
