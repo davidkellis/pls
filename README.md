@@ -68,6 +68,9 @@ Given this ruby data set generating function:
   </code>
 
 ### Timings
+
+  On a MacBook Pro (Retina, 13-inch, Early 2015), 2.7 GHz Intel Core i5, 16 GB 1867 MHz DDR3
+
   ```
   K,      N,      A,      memory (GB),  runtime (seconds)
   100,    200,    10,     0.5,          1
