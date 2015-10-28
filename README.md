@@ -69,7 +69,6 @@ Given this ruby data set generating function:
 
 ### Timings
   ```
-  run times:
   K,      N,      A,      memory (GB),  runtime (seconds)
   100,    200,    10,     0.5,          1
   100,    200,    100,    0.5,          1
