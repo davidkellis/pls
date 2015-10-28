@@ -67,6 +67,19 @@ Given this ruby data set generating function:
   y = -5000*x_1 + -4999*x_2 + ... + 4999*x_10000
   </code>
 
+5. gld_gdx_uso.csv created with:
+  ```
+  gld=CSV.read("gld.csv", headers: true)
+  gdx=CSV.read("gdx.csv", headers: true)
+  uso=CSV.read("uso.csv", headers: true)
+  File.open("gld_gdx_uso.csv", "w") do |f|
+    gld.map.with_index do |row,i|
+      f.puts "#{gld[i]['Close']},#{gld[i]['Volume']},#{gdx[i]['Close']},#{gdx[i]['Volume']},#{uso[i]['Close']},#{uso[i]['Volume']}"
+    end
+  end
+
+  ```
+
 ### Timings
 
   On a MacBook Pro (Retina, 13-inch, Early 2015), 2.7 GHz Intel Core i5, 16 GB 1867 MHz DDR3
