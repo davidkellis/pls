@@ -28,7 +28,7 @@ Given this ruby data set generating function:
   So the data conforms to the equation:
 
   <code>
-  y = -5*a + -4*b + -3*c + -2*d + -1*e + 0*f + 1*g + 2*h + 3*i + 4*j + 5*k + 6*l
+  y = -5*a + -4*b + -3*c + -2*d + -1*e + 0*f + 1*g + 2*h + 3*i + 4*j + 5*k + 6*l + 7*m
   </code>
 
 2. artificial100.csv was produced with the following ruby snippet:
