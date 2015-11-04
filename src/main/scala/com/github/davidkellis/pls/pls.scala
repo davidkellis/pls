@@ -15,6 +15,10 @@ trait PlsModel[ModelT] {
   // Y - response variables matrix (N x M)
   // A - is the number of latent variables (a.k.a. components) to use
   def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): ModelT
+
+  // trains a model on some training data;
+  // also returns the Variable Importance in the Projection (VIP) vector indicating the relative importance of each X variable
+  def trainAndComputeVIP(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): (ModelT, DenseVector[Double])
   def predict(model: ModelT, X: DenseMatrix[Double]): DenseMatrix[Double]
 
   def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[ModelT]
@@ -41,7 +45,7 @@ object DayalMcGregor {
   object Algorithm2 extends PlsModel[Model]{
     // X - predictor variables matrix (N x K)
     // Y - response variables matrix (N x M)
-    // B_PLS - PLS regression coefficients matrix (K x M)
+    // B_PLS/Beta - PLS regression coefficients matrix (K x M)
     // W - PLS weights matrix for X (K x A)
     // P - PLS loadings matrix for X (K x A)
     // Q - PLS loadings matrix for Y (M x A)
@@ -170,6 +174,56 @@ object DayalMcGregor {
       val beta = R * Q.t // compute the regression coefficients; (K x M)
 
       Model(beta, W, P, Q, R)
+    }
+
+    // X - predictor variables matrix (N x K); K - number of X-variables
+    // Y - response variables matrix (N x M); M - number of Y-variables; *** This method assumes M = 1 ***
+    // model.Beta - PLS regression coefficients matrix (K x M)
+    // model.W - PLS weights matrix for X (K x A)
+    // model.P - PLS loadings matrix for X (K x A)
+    // model.Q - PLS loadings matrix for Y (M x A)
+    // model.R - PLS weights matrix to compute scores T directly from original X (K x A)
+    // References:
+    // 1. Interpretation of variable importance in Partial Least Squares with Significance Multivariate Correlation (SMC)
+    // 2. http://math.arizona.edu/~hzhang/waeso/vsTutorial.pdf
+    def computeVIP(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] = {
+      val K = model.R.rows                      // K is the number of predictor variables; R is a (K x A) matrix
+      val A = model.R.cols                      // A is the number of components (latent variables); R is a (K x A) matrix
+      val T = X * model.R                       // (N x K) * (K x A) = (N x A)
+      val N = X.rows                            // N is the number of rows in T (as well as X)
+      val W = model.W                           // W is the PLS weights matrix for X (K x A)
+      val y: DenseVector[Double] = Y(::, 0)     // y is the column vector representation of Y - a (N x 1)
+      val vip = DenseVector.zeros[Double](K)    // (K x 1)
+      val p: Double = K.toDouble
+
+      var t_a = DenseVector.zeros[Double](N)    // (N x 1) column vector of T
+      var c_a: Double = 0.0
+      var v_a: Double = 0.0
+      var tTt: Double = 0.0
+      var numerator: Double = 0.0
+      var denominator: Double = 0.0
+
+      for (k <- 0 to (K - 1)) {
+        numerator = 0.0
+        denominator = 0.0
+        for (a <- 0 to (A - 1)) {
+          t_a = T(::, a)              // (N x 1)
+          tTt = t_a.t * t_a           // (1 x N) * (N x 1) === (1 x 1) === scalar
+          c_a = (t_a.t * y) / tTt     // (1 x N) * (N x 1) / scalar === (1 x 1) / scalar === scalar / scalar === scalar
+          v_a = pow(c_a, 2) * tTt
+          numerator += v_a * pow(W(k, a), 2)
+          denominator += v_a
+        }
+        vip(k to k) := sqrt(p * numerator / denominator)
+      }
+
+      vip
+    }
+
+    def trainAndComputeVIP(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): (Model, DenseVector[Double]) = {
+      val model = train(X, Y, A)
+      val vipVector = computeVIP(model, X, Y)
+      (model, vipVector)
     }
 
     // Y = X * B + e

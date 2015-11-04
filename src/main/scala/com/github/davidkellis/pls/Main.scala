@@ -8,7 +8,9 @@ object Main {
       val A = args(1).toInt     // second arg is A - the number of components to try to fit the model to
       val (x, y) = Csv.read(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
       val model = DayalMcGregor.Algorithm2.train(x, y, A)
+      println(model)
       println(model.Beta.toString(1000000, 1000))
+      println(DayalMcGregor.Algorithm2.computeVIP(model, x, y))
       // val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
       // println(standardizedModel.model.Beta.toString(1000000, 1000))
     }
