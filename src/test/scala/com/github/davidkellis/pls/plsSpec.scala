@@ -2,7 +2,9 @@ package com.github.davidkellis.pls
 
 import breeze.linalg._
 import breeze.numerics.NaN
+
 import org.scalatest._
+import Matchers._
 
 trait TestHelpers {
   def beBetween(x: Double, min: Double, max: Double) = x >= min && x <= max
@@ -31,7 +33,7 @@ class PlsSpec extends FlatSpec with TestHelpers {
     val model2 = DayalMcGregor.Algorithm2.standardizeAndTrain(X, Y, 2)
     val approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, DenseMatrix((2015.0, 1.0)))
 
-    val expectedY2 = DenseVector(-1.3670000000000009).toDenseMatrix.t
+    val expectedY2 = DenseVector(-1.366999999999999).toDenseMatrix.t
     assert(approxY2 === expectedY2)
     assert(approxY2.rows === 1)
     assert(approxY2.cols === 1)
@@ -194,7 +196,6 @@ class PlsSpec extends FlatSpec with TestHelpers {
     val approxY2 = DayalMcGregor.Algorithm2.standardizeAndPredict(model2, testingX)
 
     assert(approxY2 === expectedApproxY2)
-
   }
 
   it should "predict the gasoline data and yield the same error results as matlab" in {
@@ -329,5 +330,29 @@ class PlsSpec extends FlatSpec with TestHelpers {
     assert(model.R(0, 7).equals(NaN))
     assert(model.R(0, 8).equals(NaN))
     assert(model.R(0, 9).equals(NaN))
+  }
+
+  "VIP algorithm" should "produce VIP values that when squared, sum to the number of predictor values." in {
+    var trainingData = Csv.read("data/artificial13.csv", 1)    // has 13 predictor variables
+    var trainingX = trainingData._1
+    var trainingY = trainingData._2
+
+    var model = DayalMcGregor.Algorithm2.train(trainingX, trainingY, 13)
+    var vipValues = DayalMcGregor.Algorithm2.computeVIP(model, trainingX, trainingY)
+    var sum = vipValues.foldLeft(0.0) { _ + Math.pow(_, 2) }
+
+    assert(sum === (13.0 +- 0.000000001))
+
+
+
+    trainingData = Csv.read("data/artificial100.csv", 1)    // has 100 predictor variables
+    trainingX = trainingData._1
+    trainingY = trainingData._2
+
+    model = DayalMcGregor.Algorithm2.train(trainingX, trainingY, 13)
+    vipValues = DayalMcGregor.Algorithm2.computeVIP(model, trainingX, trainingY)
+    sum = vipValues.foldLeft(0.0) { _ + Math.pow(_, 2) }
+
+    assert(sum === (100.0 +- 0.000000001))
   }
 }

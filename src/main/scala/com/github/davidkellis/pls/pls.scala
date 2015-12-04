@@ -220,6 +220,59 @@ object DayalMcGregor {
       vip
     }
 
+    // X - predictor variables matrix (N x K); K - number of X-variables
+    // Y - response variables matrix (N x M); M - number of Y-variables; *** This method assumes M = 1 ***
+    // model.Beta - PLS regression coefficients matrix (K x M)
+    // model.W - PLS weights matrix for X (K x A)
+    // model.P - PLS loadings matrix for X (K x A)
+    // model.Q - PLS loadings matrix for Y (M x A)
+    // model.R - PLS weights matrix to compute scores T directly from original X (K x A)
+    // References:
+    // 1. Interpretation of variable importance in Partial Least Squares with Significance Multivariate Correlation (SMC)
+    // 2. http://math.arizona.edu/~hzhang/waeso/vsTutorial.pdf
+    //
+    // K => P
+    // model.Beta - PLS regression coefficients matrix (P x M)
+    // model.W - PLS weights matrix for X (P x A)
+    // model.P - PLS loadings matrix for X (P x A)
+    // model.Q - PLS loadings matrix for Y (M x A)
+    // model.R - PLS weights matrix to compute scores T directly from original X (P x A)
+    //
+    def computeVIP2(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] = {
+      var numerator: Double = 0.0
+      var denominator: Double = 0.0
+
+      // #PLS and PLSR parameters
+      val Rmat = model.W          // (PxA) transformed X.weights matrix
+      val Tmat = X * model.R      // (NxA) X.scores matrix - "The score vectors T can be directly computed from the original X by the equation T = XR" -- Improved PLS Algorithms p.76
+      val Qmat = model.Q          // (MxA) Y.loadings matrix
+      val Bmat = model.Beta       // (PxM) estimated PLSR coefficients matrix
+      // dimnames(Bmat) = list(colnames(X), colnames(Y))
+      //
+      // VIP values
+      val P = X.cols
+      val vip = DenseVector.zeros[Double](P)    // (P x 1)
+      for (i <- 0 to (P - 1)) {
+        numerator = 0.0
+        denominator = 0.0
+
+        //   vip = sqrt(
+        //     P * (t(Bmat[i,]) %*% Bmat[i,] %*% sum(t(Tmat[,1:A]) %*% Tmat[,1:A] %*% ((Rmat[i,1:A])^2)))       // P * ( Mx1 * 1xM * sum(AxN * NxA * (1xA).t ) == P * ( Mx1 * 1xM * sum(AxN * NxA * Ax1 )
+        //       / (t(Bmat[i,]) %*% Bmat[i,] %*% sum(t(Tmat[,1:A]) %*% Tmat[,1:A]))                             //   / ( Mx1 * 1xM *  )
+        //   )
+        //   VIP[i] = vip  #(Px1) VIP value vector
+
+        // numerator = Bmat(i, ::).t * Bmat(i, ::) * sum(Tmat.t * Tmat * (Rmat(i, ::).t :^ 2))
+        // denominator = Bmat(i, ::).t * Bmat(i, ::) * sum(Tmat.t * Tmat)
+
+        vip(i to i) := sqrt(P * numerator / denominator)
+      }
+      // names(VIP)=rownames(Bmat)
+      // list(VIP.values=VIP, X.impor=which(VIP >= cutoff))
+
+      vip
+    }
+
     def trainAndComputeVIP(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): (Model, DenseVector[Double]) = {
       val model = train(X, Y, A)
       val vipVector = computeVIP(model, X, Y)
