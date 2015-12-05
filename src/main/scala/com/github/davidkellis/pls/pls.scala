@@ -267,8 +267,6 @@ object DayalMcGregor {
 
         vip(i to i) := sqrt(P * numerator / denominator)
       }
-      // names(VIP)=rownames(Bmat)
-      // list(VIP.values=VIP, X.impor=which(VIP >= cutoff))
 
       vip
     }
