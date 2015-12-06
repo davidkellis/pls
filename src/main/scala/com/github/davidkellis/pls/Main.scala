@@ -1,7 +1,9 @@
 package com.github.davidkellis.pls
 
+import breeze.linalg._
+
 object Main {
-  def main(args: Array[String]) {
+  def main(args: Array[String]): Unit = {
     if (args.length == 2) {
       // train and print model
       val filePath = args(0)    // first arg is file path
@@ -12,24 +14,40 @@ object Main {
       val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
 
 
-      // val model = DayalMcGregor.Algorithm2.train(x, y, A)
-      val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
-
-      println("model")
-      // println(model)
-      println(standardizedModel.model)
-
-      println("beta")
-      // println(model.Beta.toString(1000000, 1000))
-      println(standardizedModel.model.Beta.toString(1000000, 1000))
-
-      println("vip")
-      // println(DayalMcGregor.Algorithm2.computeVIP(model, x, y))
-      println(DayalMcGregor.Algorithm2.computeVIP(standardizedModel.model, x, y))
+      // run(x, y, A, xHeader, yHeader)
+      runStandardized(x, y, A, xHeader, yHeader)
 
 
       // val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
       // println(standardizedModel.model.Beta.toString(1000000, 1000))
     }
+  }
+
+  def run(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int, xHeader: IndexedSeq[String], yHeader: IndexedSeq[String]): Unit = {
+    val model = DayalMcGregor.Algorithm2.train(x, y, A)
+
+    println("model")
+    println(model)
+
+    println("beta")
+    println(model.Beta.toString(1000000, 1000))
+
+    val vip = DayalMcGregor.Algorithm2.computeVIP(model, x, y)
+    println("vip")
+    println(xHeader.zip(vip.toArray).sortWith( (pair1, pair2) => pair1._2 > pair2._2 ))
+  }
+
+  def runStandardized(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int, xHeader: IndexedSeq[String], yHeader: IndexedSeq[String]): Unit = {
+    val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
+
+    println("model")
+    println(standardizedModel.model)
+
+    println("beta")
+    println(standardizedModel.model.Beta.toString(1000000, 1000))
+
+    val vip = DayalMcGregor.Algorithm2.computeVIP(standardizedModel.model, x, y)
+    println("vip")
+    println(xHeader.zip(vip.toArray).sortWith( (pair1, pair2) => pair1._2 > pair2._2 ))
   }
 }

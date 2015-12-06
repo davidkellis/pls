@@ -355,4 +355,25 @@ class PlsSpec extends FlatSpec with TestHelpers {
 
     assert(sum === (100.0 +- 0.000000001))
   }
+
+  it should "closely approximate the VIP scores documented in Fig. 6.14 of the Applied Predictive Modeling book." in {
+    val filePath = "data/solTrainTrans.csv"
+    val A = 2
+
+    val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
+
+    val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
+
+    val vip = DayalMcGregor.Algorithm2.computeVIP(standardizedModel.model, x, y)
+
+    val sortedColumnNameAndVipScorePairs = xHeader.zip(vip.toArray).sortWith( (pair1, pair2) => pair1._2 > pair2._2 ).toArray
+
+    assert(sortedColumnNameAndVipScorePairs.take(4).map(_._1) === Array("MolWeight", "NumCarbon","NumNonHAtoms","NumNonHBonds"))
+
+    assert(sortedColumnNameAndVipScorePairs(0)._2 === 2.745480124550425 +- 0.000000001)
+    assert(sortedColumnNameAndVipScorePairs(1)._2 === 2.453165729632949 +- 0.000000001)
+    assert(sortedColumnNameAndVipScorePairs(2)._2 === 2.3594861202847586 +- 0.000000001)
+    assert(sortedColumnNameAndVipScorePairs(3)._2 === 2.312747057203807 +- 0.000000001)
+
+  }
 }
