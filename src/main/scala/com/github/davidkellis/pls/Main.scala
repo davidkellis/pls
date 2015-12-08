@@ -14,8 +14,8 @@ object Main {
       val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
 
 
-      // run(x, y, A, xHeader, yHeader)
-      runStandardized(x, y, A, xHeader, yHeader)
+      run(x, y, A, xHeader, yHeader)
+      // runStandardized(x, y, A, xHeader, yHeader)
 
 
       // val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
@@ -27,10 +27,16 @@ object Main {
     val model = DayalMcGregor.Algorithm2.train(x, y, A)
 
     println("model")
-    println(model)
-
-    println("beta")
+    println("Beta")
     println(model.Beta.toString(1000000, 1000))
+    println("W")
+    println(model.W.toString(1000000, 1000))
+    println("P")
+    println(model.P.toString(1000000, 1000))
+    println("Q")
+    println(model.Q.toString(1000000, 1000))
+    println("R")
+    println(model.R.toString(1000000, 1000))
 
     val vip = DayalMcGregor.Algorithm2.computeVIP(model, x, y)
     println("vip")

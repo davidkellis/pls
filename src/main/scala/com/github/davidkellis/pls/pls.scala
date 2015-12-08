@@ -220,6 +220,10 @@ object DayalMcGregor {
       vip
     }
 
+    // TODO: Complete this second implementation of the VIP calculation later.
+    // NOTE: For now, computeVIP is producing correct values, so computeVIP2 is on hold.
+    //       computeVIP2 is currently dead code.
+    //
     // X - predictor variables matrix (N x K); K - number of X-variables
     // Y - response variables matrix (N x M); M - number of Y-variables; *** This method assumes M = 1 ***
     // model.Beta - PLS regression coefficients matrix (K x M)
@@ -237,7 +241,6 @@ object DayalMcGregor {
     // model.P - PLS loadings matrix for X (P x A)
     // model.Q - PLS loadings matrix for Y (M x A)
     // model.R - PLS weights matrix to compute scores T directly from original X (P x A)
-    //
     def computeVIP2(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] = {
       var numerator: Double = 0.0
       var denominator: Double = 0.0
