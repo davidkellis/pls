@@ -14,8 +14,8 @@ object Main {
       val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
 
 
-      run(x, y, A, xHeader, yHeader)
-      // runStandardized(x, y, A, xHeader, yHeader)
+      // run(x, y, A, xHeader, yHeader)
+      runStandardized(x, y, A, xHeader, yHeader)
 
 
       // val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
