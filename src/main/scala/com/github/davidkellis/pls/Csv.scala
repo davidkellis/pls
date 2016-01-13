@@ -6,32 +6,63 @@ import breeze.linalg._
 
 object Csv {
   // Reads a CSV file into a pair of matrices representing the predictor variables and the response variables
-  // Assumes the leftmost M columns in the CSV are the response variables, followed by the remaining columns holding the predictor variables
+  // The zero-based column indices referenced in <responseColumnIndices> identify the columns in the csv file that hold response variables; all the remaining columns are assumed to be predictor variables
   // Returns a pair of matrices of the form (predictor matrix, response matrix)
-  def read(filename: String, M: Int): (DenseMatrix[Double], DenseMatrix[Double]) = {
+  def read(filename: String, responseColumnIndices: Seq[Int]): (DenseMatrix[Double], DenseMatrix[Double]) = {
+    val responseColumnIndexToColumnInResponseMatrixMap = responseColumnIndices.zipWithIndex.foldLeft(Map.empty[Int, Int]) { (m, pair) => m + (pair._1 -> pair._2) }   // Array(4,5,6) gets transformed to Map(4 -> 0, 5 -> 1, 6 -> 2)
+    // val setResponseColumnIndices = responseColumnIndices.toSet
     val file = new java.io.File(filename)
-    val csvMatrix = csvread(file)
+    val lineCount = Source.fromFile(filename).getLines().size
 
-    // M is the number of response variables
-    val N = csvMatrix.rows       // number of rows
-    val K = csvMatrix.cols - M   // number of predictor variables
+    if (lineCount > 0) {
+      val lines = Source.fromFile(filename).getLines()
+      var line = lines.next
+      var fields = line.split(",").map(_.trim).map(_.toDouble)
+      val columnCount = fields.size
 
-    val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N x K)
-    val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N x M)
+      val M = responseColumnIndices.length      // number of response variables
+      val N = lineCount                         // number of rows
+      val K = columnCount - M                   // number of predictor variables
 
-    (0 until M).foreach { c =>
-      Y(::, c) := csvMatrix(::, c)
+      val X = DenseMatrix.zeros[Double](N, K)   // X - predictor variables matrix (N x K)
+      val Y = DenseMatrix.zeros[Double](N, M)   // Y - response variables matrix (N x M)
+
+      // process the first line that we've already read in
+      var row = 0
+      var predictorCol = 0
+      (0 until columnCount).foreach { c =>
+        if (responseColumnIndexToColumnInResponseMatrixMap.contains(c)) {
+          Y(row, responseColumnIndexToColumnInResponseMatrixMap(c)) = fields(c)
+        } else {
+          X(row, predictorCol) = fields(c)
+          predictorCol += 1
+        }
+      }
+      row += 1
+
+      // process the remaining lines
+      lines.foreach { line =>
+        fields = line.split(",").map(_.trim).map(_.toDouble)
+        predictorCol = 0
+        (0 until columnCount).foreach { c =>
+          if (responseColumnIndexToColumnInResponseMatrixMap.contains(c)) {
+            Y(row, responseColumnIndexToColumnInResponseMatrixMap(c)) = fields(c)
+          } else {
+            X(row, predictorCol) = fields(c)
+            predictorCol += 1
+          }
+        }
+        row += 1
+      }
+
+      (X, Y)
+    } else {
+      (DenseMatrix.zeros[Double](0, 0), DenseMatrix.zeros[Double](0, 0))
     }
-
-    (M until csvMatrix.cols).foreach { c =>
-      X(::, c - M) := csvMatrix(::, c)
-    }
-
-    (X, Y)
   }
 
   // Reads a CSV file into a pair of matrices representing the predictor variables and the response variables
-  // Assumes the leftmost M columns in the CSV are the response variables, followed by the remaining columns holding the predictor variables
+  // The zero-based column indices referenced in <responseColumnIndices> identify the columns in the csv file that hold response variables; all the remaining columns are assumed to be predictor variables
   // Returns a 4-tuple of the form (predictor variable names, response variable names, predictor matrix, response matrix)
   def readWithHeader(filename: String, M: Int): (IndexedSeq[String], IndexedSeq[String], DenseMatrix[Double], DenseMatrix[Double]) = {
     val file = new java.io.File(filename)

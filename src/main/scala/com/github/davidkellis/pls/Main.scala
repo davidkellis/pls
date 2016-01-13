@@ -38,7 +38,7 @@ object Main {
     println("R")
     println(model.R.toString(1000000, 1000))
 
-    val vip = DayalMcGregor.Algorithm2.computeVIP(model, x, y)
+    val vip = DayalMcGregor.VIP.computeVIP(model, x, y)
     println("vip")
     println(xHeader.zip(vip.toArray).sortWith( (pair1, pair2) => pair1._2 > pair2._2 ))
   }
@@ -52,7 +52,7 @@ object Main {
     println("beta")
     println(standardizedModel.model.Beta.toString(1000000, 1000))
 
-    val vip = DayalMcGregor.Algorithm2.computeVIP(standardizedModel.model, x, y)
+    val vip = DayalMcGregor.VIP.computeVIP(standardizedModel.model, x, y)
     println("vip")
     println(xHeader.zip(vip.toArray).sortWith( (pair1, pair2) => pair1._2 > pair2._2 ))
   }
