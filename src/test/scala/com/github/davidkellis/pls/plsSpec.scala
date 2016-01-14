@@ -237,16 +237,17 @@ class PlsSpec extends FlatSpec with TestHelpers {
     // 3 components (A = 3)
     model = DayalMcGregor.Algorithm1.train(trainingX, trainingY, 3)
 
-    println("---- 2 ----")
-    println(trainingX)
-    println("---")
-    println(trainingY)
-    println("---")
-    println(model.Beta)
-    println(model.W)
-    println(model.P)
-    println(model.Q)
-    println(model.R)
+    // todo: fix this test; this test is failing because my implementation produces different model parameters than the matlab version does
+    // println("---- 2 ----")
+    // println(trainingX)
+    // println("---")
+    // println(trainingY)
+    // println("---")
+    // println(model.Beta)
+    // println(model.W)
+    // println(model.P)
+    // println(model.Q)
+    // println(model.R)
     assertMatrixEqualWithinMillionth(model.Beta, DenseMatrix((NaN)))
     assertMatrixEqualWithinMillionth(model.W, DenseMatrix((-1.0, NaN, NaN)))    // need to investigate why this fails
     assertMatrixEqualWithinMillionth(model.P, DenseMatrix((-1.0, NaN, NaN)))    // need to investigate why this fails
@@ -257,6 +258,7 @@ class PlsSpec extends FlatSpec with TestHelpers {
     // 10 components (A = 10)
     model = DayalMcGregor.Algorithm1.train(trainingX, trainingY, 10)
 
+    // todo: fix this test; this test is failing because my implementation produces different model parameters than the matlab version does
     // println("---- 3 ----")
     // println(model.Beta)
     // println(model.W)
@@ -294,11 +296,12 @@ class PlsSpec extends FlatSpec with TestHelpers {
     assert(sum === (100.0 +- 0.000000001))
   }
 
+  // todo: prepare a proper test
   it should "closely approximate the VIP scores documented in Fig. 6.14 of the Applied Predictive Modeling book." in {
     val filePath = "data/solTrainTrans.csv"
     val A = 2
 
-    val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
+    val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, Array(0))    // assumes the left-most column is the response variable, followed by the predictor columns
 
     val standardizedModel = DayalMcGregor.Algorithm1.standardizeAndTrain(x, y, A)
 
@@ -659,11 +662,12 @@ class PlsSpec extends FlatSpec with TestHelpers {
     assert(sum === (100.0 +- 0.000000001))
   }
 
+  // todo: prepare a proper test
   it should "closely approximate the VIP scores documented in Fig. 6.14 of the Applied Predictive Modeling book." in {
     val filePath = "data/solTrainTrans.csv"
     val A = 2
 
-    val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, 1)    // assumes the left-most column is the response variable, followed by the predictor columns
+    val (xHeader, yHeader, x, y) = Csv.readWithHeader(filePath, Array(0))    // assumes the left-most column is the response variable, followed by the predictor columns
 
     val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
 

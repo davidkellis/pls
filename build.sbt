@@ -9,6 +9,8 @@ scalaVersion := "2.11.7"
 libraryDependencies  ++= Seq(
   "org.scalatest" % "scalatest_2.11" % "2.2.4" % "test",
 
+  "com.opencsv" % "opencsv" % "3.6",
+
   "org.scalanlp" %% "breeze" % "0.11.2",
 
   // native libraries are not included by default. add this if you want them (as of 0.7)
