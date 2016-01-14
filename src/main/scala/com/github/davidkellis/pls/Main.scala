@@ -25,13 +25,13 @@ object Main {
       // runStandardizedWithHeader(x, y, A, xHeader, yHeader)
 
 
-      // val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
+      // val standardizedModel = DayalMcGregor.Algorithm1.standardizeAndTrain(x, y, A)
       // println(standardizedModel.model.Beta.toString(1000000, 1000))
     }
   }
 
   def run(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int): Unit = {
-    val model = DayalMcGregor.Algorithm2.train(x, y, A)
+    val model = DayalMcGregor.Algorithm1.train(x, y, A)
 
     println("model")
     println("Beta")
@@ -51,7 +51,7 @@ object Main {
   }
 
   def runStandardized(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int): Unit = {
-    val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
+    val standardizedModel = DayalMcGregor.Algorithm1.standardizeAndTrain(x, y, A)
 
     println("model")
     println(standardizedModel.model)
@@ -65,7 +65,7 @@ object Main {
   }
 
   def runWithHeader(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int, xHeader: IndexedSeq[String], yHeader: IndexedSeq[String]): Unit = {
-    val model = DayalMcGregor.Algorithm2.train(x, y, A)
+    val model = DayalMcGregor.Algorithm1.train(x, y, A)
 
     println("model")
     println("Beta")
@@ -85,7 +85,7 @@ object Main {
   }
 
   def runStandardizedWithHeader(x: DenseMatrix[Double], y: DenseMatrix[Double], A: Int, xHeader: IndexedSeq[String], yHeader: IndexedSeq[String]): Unit = {
-    val standardizedModel = DayalMcGregor.Algorithm2.standardizeAndTrain(x, y, A)
+    val standardizedModel = DayalMcGregor.Algorithm1.standardizeAndTrain(x, y, A)
 
     println("model")
     println(standardizedModel.model)
