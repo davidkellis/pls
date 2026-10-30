@@ -16,7 +16,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--coursier', default='cs', help='Coursier executable')
     parser.add_argument('--java-home', type=Path, help='Existing JDK 8 home; otherwise provision Temurin 8')
+    parser.add_argument('--parity-input', type=Path, help='Shared datasets for the cross-language check')
+    parser.add_argument('--parity-output', type=Path, help='Write actual Scala results as JSON')
     args = parser.parse_args()
+    if bool(args.parity_input) != bool(args.parity_output):
+        parser.error('--parity-input and --parity-output must be supplied together')
     classpath = subprocess.check_output([
         args.coursier, 'fetch', '--classpath',
         'org.scala-lang:scala-compiler:2.11.7',
@@ -39,6 +43,11 @@ def main():
     runtime = str(classes) + ':' + str(ROOT / 'src/test/resources') + ':' + classpath
     subprocess.run([java, '-Xmx1g', '-cp', runtime, 'org.scalatest.tools.Runner',
                     '-R', str(classes), '-o'], cwd=ROOT, check=True)
+    if args.parity_input:
+        subprocess.run([java, '-Xmx1g', '-cp', runtime,
+                        'com.github.davidkellis.pls.CrossLanguageExporter',
+                        str(args.parity_input.resolve()), str(args.parity_output.resolve())],
+                       cwd=ROOT, check=True)
 
 
 if __name__ == '__main__':

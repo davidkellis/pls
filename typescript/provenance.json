@@ -1,0 +1,18 @@
+{
+  "website": "https://conquerthelawn.com/demos/pls/",
+  "matrix_library": "ml-matrix 6.15.1",
+  "files": {
+    "src/regression.ts": {
+      "website_path": "src/lib/pls/regression.ts",
+      "sha256": "06cd3a155588aaaca0a6a68012cbc88e1f4b0224cd86ece792fddb7033e7deb3"
+    },
+    "src/experiment.ts": {
+      "website_path": "src/lib/pls/experiment.ts",
+      "sha256": "a16f5b3e8f1a393e7c7b9b9418d589e2af3557b8db7d91b360358bb38627b893"
+    },
+    "src/experiment.worker.ts": {
+      "website_path": "src/lib/pls/experiment.worker.ts",
+      "sha256": "6842b6b68a6111468f47caa053cf0c053f40b8a42b49fc8846ca2c94e9165acd"
+    }
+  }
+}

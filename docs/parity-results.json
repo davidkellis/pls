@@ -1,0 +1,267 @@
+{
+  "status": "passed",
+  "datasets": 640,
+  "coverage": {
+    "independent-reference": 54,
+    "reference-component-paths": 244,
+    "website-scenarios": 64,
+    "website-validation-folds": 160,
+    "seeded-single-and-multiple-responses": 108,
+    "edge-cases": 10
+  },
+  "tolerance": "abs(actual-expected) <= 2e-7 * max(1, abs(expected))",
+  "scope": "Centered PLS1/PLS2 with optional sample-SD scaling; original-unit coefficients, intercepts, training and held-out predictions, fitted component counts, and website five-fold selection. Latent-vector signs and unsupported API requests are not compared.",
+  "versions": {
+    "node": "v26.3.0",
+    "scala": "2.11.7",
+    "java": "1.8.0_504",
+    "breeze": "0.11.2",
+    "matrix_library": "ml-matrix 6.15.1"
+  },
+  "source_identity": {
+    "website_checkout_checked": true,
+    "files": {
+      "src/regression.ts": {
+        "website_path": "src/lib/pls/regression.ts",
+        "sha256": "06cd3a155588aaaca0a6a68012cbc88e1f4b0224cd86ece792fddb7033e7deb3"
+      },
+      "src/experiment.ts": {
+        "website_path": "src/lib/pls/experiment.ts",
+        "sha256": "a16f5b3e8f1a393e7c7b9b9418d589e2af3557b8db7d91b360358bb38627b893"
+      },
+      "src/experiment.worker.ts": {
+        "website_path": "src/lib/pls/experiment.worker.ts",
+        "sha256": "6842b6b68a6111468f47caa053cf0c053f40b8a42b49fc8846ca2c94e9165acd"
+      }
+    }
+  },
+  "source_sha256": {
+    "src/main/scala/com/github/davidkellis/pls/Standardize.scala": "5ce44611c14df6b175a8169405fd33f2044c09a21f4a60412ef078b010c9eabf",
+    "src/main/scala/com/github/davidkellis/pls/pls.scala": "e0149da3fba7c6b274778e2aa8ef2f5fb715b41564879bb48ff10e3a11156cf4",
+    "src/main/scala/com/github/davidkellis/pls/Utils.scala": "b5d6a0822c6f6648e740001930c2aedcf2c3d2027334502e5c61891d83d89e45"
+  },
+  "fixture_sha256": "458fea227fc824f2502bb0880c2ae95843d9a631ddf9b09dbd37999b10ac0f61",
+  "dataset_sha256": "6a20f445c2cfce345e71d6d12019994d1b65f4bead2e6e6dedd1b998be76be57",
+  "harness_sha256": {
+    "scripts/verify.py": "6cfecabe66126acefb391bd8ea7f241d9d8e32b9c3cf229e0ea7086fe4983cb4",
+    "scripts/test.py": "52a1f8c974409c23b7d025e12db938a158f81fc202009b8763021cd26fe143f3",
+    "typescript/test/parity.mjs": "d5ced6fd84254c2b33eabda1b91a2a80060a53d55d8ab13dca7d7a8cf24ea5e0",
+    "src/test/scala/com/github/davidkellis/pls/CrossLanguageExporter.scala": "d32484d4eda1f751d76af5cdf6eaf48a744ab8d00438d0bd3b82da538ea9ecf5"
+  },
+  "pairs": {
+    "typescript_vs_scala_algorithm1": {
+      "fits": 640,
+      "numeric_comparisons": 71100,
+      "maximum_absolute_difference": 1.2469740795495454e-9,
+      "maximum_scaled_difference": 1.9113810669980556e-10,
+      "largest_scaled_difference_at": "reference:different-units.trainingPredictions[15][0]"
+    },
+    "typescript_vs_scala_algorithm2": {
+      "fits": 640,
+      "numeric_comparisons": 71100,
+      "maximum_absolute_difference": 2.7939677238464355e-9,
+      "maximum_scaled_difference": 1.9113164671242341e-10,
+      "largest_scaled_difference_at": "reference:different-units.trainingPredictions[15][0]"
+    },
+    "scala_algorithm1_vs_algorithm2": {
+      "fits": 640,
+      "numeric_comparisons": 71100,
+      "maximum_absolute_difference": 3.4924596548080444e-9,
+      "maximum_scaled_difference": 1.993960552226781e-12,
+      "largest_scaled_difference_at": "website:correlated:seed101:k12.predictions[138][0]"
+    }
+  },
+  "independent_reference": {
+    "versions": {
+      "numpy": "2.5.4",
+      "scipy": "1.18.1",
+      "scikit-learn": "1.9.1",
+      "pls": "PLSRegression (NIPALS), tol=1e-24, max_iter=10000",
+      "ols": "numpy.linalg.lstsq, rcond=eps*max(shape), centered and optionally sample-SD-scaled X"
+    },
+    "engines": {
+      "TypeScript": {
+        "fits": 54,
+        "numeric_comparisons": 1708,
+        "maximum_absolute_difference": 1.2467040733099566e-9,
+        "maximum_scaled_difference": 1.2608904626965225e-11,
+        "largest_scaled_difference_at": "reference:different-units.predictions[3][0]"
+      },
+      "Algorithm1": {
+        "fits": 54,
+        "numeric_comparisons": 1708,
+        "maximum_absolute_difference": 3.019522409886122e-10,
+        "maximum_scaled_difference": 2.223207729024068e-12,
+        "largest_scaled_difference_at": "reference:wide-0-scale-False.coefficients[5][0]"
+      },
+      "Algorithm2": {
+        "fits": 54,
+        "numeric_comparisons": 1708,
+        "maximum_absolute_difference": 2.7284841053187847e-10,
+        "maximum_scaled_difference": 2.223221606811876e-12,
+        "largest_scaled_difference_at": "reference:wide-0-scale-False.coefficients[5][0]"
+      }
+    }
+  },
+  "cross_validation": {
+    "correlated": {
+      "website_suggested": 2,
+      "available": 12,
+      "TypeScript": {
+        "suggested": 2,
+        "errors": [
+          0.8490289665219233,
+          0.8034918273678925,
+          1.1443795727437278,
+          1.338120488708202,
+          1.5465937944477017,
+          1.7566360226915227,
+          2.011953606232542,
+          2.2433457435198276,
+          2.431406736068316,
+          2.561493498764461,
+          2.6841081390970594,
+          2.815000031294443
+        ]
+      },
+      "Algorithm1": {
+        "suggested": 2,
+        "errors": [
+          0.8490289665219234,
+          0.8034918273678926,
+          1.1443795727437267,
+          1.338120488708201,
+          1.546593794447698,
+          1.7566360226915185,
+          2.0119536062325394,
+          2.24334574351982,
+          2.4314067360683027,
+          2.561493498764448,
+          2.68410813909704,
+          2.815000031294408
+        ]
+      },
+      "Algorithm2": {
+        "suggested": 2,
+        "errors": [
+          0.8490289665219233,
+          0.8034918273678925,
+          1.1443795727437305,
+          1.338120488708216,
+          1.5465937944477222,
+          1.7566360226915552,
+          2.011953606232602,
+          2.2433457435199253,
+          2.4314067360684564,
+          2.5614934987646167,
+          2.684108139097228,
+          2.8150000312946113
+        ]
+      }
+    },
+    "wide": {
+      "website_suggested": 1,
+      "available": 12,
+      "TypeScript": {
+        "suggested": 1,
+        "errors": [
+          0.7426339141750246,
+          0.7958152273268657,
+          0.7670556076454101,
+          0.7837191326165012,
+          0.8143302927885434,
+          0.8268340423472137,
+          0.8370235985465778,
+          0.8370938764929521,
+          0.8362988334072938,
+          0.8360379362659868,
+          0.8357944364915247,
+          0.8356874240020958
+        ]
+      },
+      "Algorithm1": {
+        "suggested": 1,
+        "errors": [
+          0.7426339141750244,
+          0.7958152273268657,
+          0.7670556076454108,
+          0.7837191326165018,
+          0.8143302927885445,
+          0.8268340423472155,
+          0.8370235985465807,
+          0.8370938764929554,
+          0.8362988334072976,
+          0.8360379362659912,
+          0.8357944364915311,
+          0.8356874240021035
+        ]
+      },
+      "Algorithm2": {
+        "suggested": 1,
+        "errors": [
+          0.7426339141750244,
+          0.7958152273268658,
+          0.7670556076454099,
+          0.7837191326165025,
+          0.814330292788547,
+          0.8268340423472191,
+          0.837023598546586,
+          0.8370938764929622,
+          0.8362988334073059,
+          0.8360379362660014,
+          0.8357944364915424,
+          0.8356874240021164
+        ]
+      }
+    },
+    "abundant": {
+      "website_suggested": 4,
+      "available": 8,
+      "TypeScript": {
+        "suggested": 4,
+        "errors": [
+          0.21543267768493882,
+          0.15927133459618037,
+          0.144260938489394,
+          0.14393502823867482,
+          0.14409783014289293,
+          0.14411510892993354,
+          0.14411476888069452,
+          0.14411478294739327
+        ]
+      },
+      "Algorithm1": {
+        "suggested": 4,
+        "errors": [
+          0.2154326776849389,
+          0.15927133459618034,
+          0.14426093848939373,
+          0.14393502823867466,
+          0.1440978301428929,
+          0.14411510892993357,
+          0.14411476888069433,
+          0.1441147829473932
+        ]
+      },
+      "Algorithm2": {
+        "suggested": 4,
+        "errors": [
+          0.21543267768493898,
+          0.1592713345961804,
+          0.14426093848939373,
+          0.1439350282386748,
+          0.14409783014289293,
+          0.1441151089299336,
+          0.14411476888069444,
+          0.14411478294739327
+        ]
+      }
+    }
+  },
+  "negative_controls": {
+    "changed_final_response_rejected": true,
+    "nonfinite_result_rejected": true,
+    "missing_result_rejected": true,
+    "duplicate_result_rejected": true
+  }
+}

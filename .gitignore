@@ -1,2 +1,4 @@
 target
 project/target
+typescript/node_modules/
+__pycache__/
