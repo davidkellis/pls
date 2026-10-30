@@ -39,6 +39,30 @@ object DayalMcGregor {
     R: DenseMatrix[Double]
   )
 
+  private def finite(value: Double): Boolean = !value.isNaN && !value.isInfinity
+
+  private def matrixNorm(matrix: DenseMatrix[Double]): Double =
+    matrix.valuesIterator.foldLeft(0.0)((acc, value) => math.hypot(acc, value))
+
+  private def validateTraining(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): Unit = {
+    require(X.rows > 0 && X.cols > 0 && Y.cols > 0, "Training matrices must be nonempty")
+    require(X.rows == Y.rows, "X and Y must have the same number of observations")
+    require(A > 0, "The requested component count must be positive")
+    require(X.valuesIterator.forall(finite) && Y.valuesIterator.forall(finite), "Training values must be finite")
+  }
+
+  // Store only fitted components. An exhausted model may contain zero of them;
+  // its zero prediction becomes the training response mean after unscaling.
+  private def finishModel(W: DenseMatrix[Double], P: DenseMatrix[Double], Q: DenseMatrix[Double], R: DenseMatrix[Double], used: Int): Model = {
+    val w = W(::, 0 until used).copy
+    val p = P(::, 0 until used).copy
+    val q = Q(::, 0 until used).copy
+    val r = R(::, 0 until used).copy
+    val beta = if (used == 0) DenseMatrix.zeros[Double](R.rows, Q.rows) else r * q.t
+    require(beta.valuesIterator.forall(finite), "Numerical range exceeded; rescale the training data")
+    Model(beta, w, p, q, r)
+  }
+
   object VIP {
     // X - predictor variables matrix (N x K); K - number of X-variables
     // Y - response variables matrix (N x M); M - number of Y-variables; *** This method assumes M = 1 ***
@@ -51,6 +75,8 @@ object DayalMcGregor {
     // 1. Interpretation of variable importance in Partial Least Squares with Significance Multivariate Correlation (SMC)
     // 2. http://math.arizona.edu/~hzhang/waeso/vsTutorial.pdf
     def computeVIP(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] = {
+      require(Y.cols == 1, "computeVIP currently supports a single response")
+      if (model.R.cols == 0) return DenseVector.zeros[Double](X.cols)
       val K = model.R.rows                      // K is the number of predictor variables; R is a (K x A) matrix
       val A = model.R.cols                      // A is the number of components (latent variables); R is a (K x A) matrix
       val T = X * model.R                       // (N x K) * (K x A) = (N x A)
@@ -84,64 +110,14 @@ object DayalMcGregor {
       vip
     }
 
-    // TODO: Complete this second implementation of the VIP calculation later.
-    // NOTE: For now, computeVIP is producing correct values, so computeVIP2 is on hold.
-    //       computeVIP2 is currently dead code.
-    //
-    // X - predictor variables matrix (N x K); K - number of X-variables
-    // Y - response variables matrix (N x M); M - number of Y-variables; *** This method assumes M = 1 ***
-    // model.Beta - PLS regression coefficients matrix (K x M)
-    // model.W - PLS weights matrix for X (K x A)
-    // model.P - PLS loadings matrix for X (K x A)
-    // model.Q - PLS loadings matrix for Y (M x A)
-    // model.R - PLS weights matrix to compute scores T directly from original X (K x A)
-    // References:
-    // 1. Interpretation of variable importance in Partial Least Squares with Significance Multivariate Correlation (SMC)
-    // 2. http://math.arizona.edu/~hzhang/waeso/vsTutorial.pdf
-    //
-    // K => P
-    // model.Beta - PLS regression coefficients matrix (P x M)
-    // model.W - PLS weights matrix for X (P x A)
-    // model.P - PLS loadings matrix for X (P x A)
-    // model.Q - PLS loadings matrix for Y (M x A)
-    // model.R - PLS weights matrix to compute scores T directly from original X (P x A)
-    def computeVIP2(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] = {
-      var numerator: Double = 0.0
-      var denominator: Double = 0.0
+    // Retained for source compatibility; use the verified single-response
+    // calculation instead of the unfinished zero/zero implementation.
+    def computeVIP2(model: Model, X: DenseMatrix[Double], Y: DenseMatrix[Double]): DenseVector[Double] =
+      computeVIP(model, X, Y)
 
-      // #PLS and PLSR parameters
-      val Rmat = model.W          // (PxA) transformed X.weights matrix
-      val Tmat = X * model.R      // (NxA) X.scores matrix - "The score vectors T can be directly computed from the original X by the equation T = XR" -- Improved PLS Algorithms p.76
-      val Qmat = model.Q          // (MxA) Y.loadings matrix
-      val Bmat = model.Beta       // (PxM) estimated PLSR coefficients matrix
-      // dimnames(Bmat) = list(colnames(X), colnames(Y))
-      //
-      // VIP values
-      val P = X.cols
-      val vip = DenseVector.zeros[Double](P)    // (P x 1)
-      for (i <- 0 to (P - 1)) {
-        numerator = 0.0
-        denominator = 0.0
-
-        //   vip = sqrt(
-        //     P * (t(Bmat[i,]) %*% Bmat[i,] %*% sum(t(Tmat[,1:A]) %*% Tmat[,1:A] %*% ((Rmat[i,1:A])^2)))       // P * ( Mx1 * 1xM * sum(AxN * NxA * (1xA).t ) == P * ( Mx1 * 1xM * sum(AxN * NxA * Ax1 )
-        //       / (t(Bmat[i,]) %*% Bmat[i,] %*% sum(t(Tmat[,1:A]) %*% Tmat[,1:A]))                             //   / ( Mx1 * 1xM *  )
-        //   )
-        //   VIP[i] = vip  #(Px1) VIP value vector
-
-        // numerator = Bmat(i, ::).t * Bmat(i, ::) * sum(Tmat.t * Tmat * (Rmat(i, ::).t :^ 2))
-        // denominator = Bmat(i, ::).t * Bmat(i, ::) * sum(Tmat.t * Tmat)
-
-        vip(i to i) := sqrt(P * numerator / denominator)
-      }
-
-      vip
-    }
   }
 
-  // Algorithm1 doesn't work if any column in X or Y is all zeros.
-  // Algorithmq may be unable to train a model if X has duplicate columns, which will be the case if X has any column that is a scalar-multiple
-  //   of another column in X, and is subsequently mean-centered and scaled before being trained.
+  // Direct-X kernel formulation. Stops at exhausted response covariance or scores.
   object Algorithm1 extends PlsModel[Model]{
     // X - predictor variables matrix (N x K)
     // Y - response variables matrix (N x M)
@@ -167,7 +143,7 @@ object DayalMcGregor {
     def scalar[T](x: DenseVector[T]): T = x(0)
 
     /**
-     * Implements "Modified kernel algorithm #2" as described in Dayal and MacGregor's "Improved PLS Algorithms" paper,
+     * Implements "Modified kernel algorithm #1" as described in Dayal and MacGregor's "Improved PLS Algorithms" paper,
      * published in Journal of Chemometrics, Volume 11, Issue 1, pages 73–85, January 1997.
      *
      * X - predictor variables matrix (N x K); K - number of X-variables
@@ -175,64 +151,85 @@ object DayalMcGregor {
      * A - number of components in PLS model
      */
     def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): Model = {
+      validateTraining(X, Y, A)
+      val limit = math.min(A, math.min(X.rows, X.cols))
       val K = X.cols // number of columns in X - number of predictor variables
       val M = Y.cols // number of columns in Y - number of response variables
       val N = X.rows // number of rows in X === number of rows in Y - number of observations of predictor and response variables
-      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
-      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
-      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A)        // (M x A)
-      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
+      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
+      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
+      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, limit)        // (M x A)
+      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
       var YtXXtY: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, M)   // (M x M) matrix
       var w_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of W
-      var p_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (K x 1) - column vector of P
+      var p_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of P
       var q_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (M x 1) - column vector of Q
       var r_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of R
       var t_a: DenseVector[Double] = DenseVector.zeros[Double](N)         // (N x 1) - column vector of T [which is N x A]
       var tt: Double = 0.0
       var indexOfLargestEigenvalue: Int = 0
-      var j: Int = 0
 
 
       var XY: DenseMatrix[Double] = X.t * Y                               // compute the covariance matrices; (K x M) matrix
 
-      // A = number of PLS components to compute
-      for (a <- 0 to (A - 1)) {
-        if (M == 1) {
-          // if there is a single response variable, compute the X-weights as:
-          w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
+      val initialCovarianceNorm = matrixNorm(XY)
+      val xNorm = matrixNorm(X)
+      require(finite(initialCovarianceNorm) && finite(xNorm), "Numerical range exceeded; rescale the training data")
+      val tolerance = 64 * math.ulp(1.0) * math.max(N, math.max(K, M))
+      var a = 0
+      var exhausted = false
+      while (a < limit && !exhausted) {
+        val covarianceNorm = matrixNorm(XY)
+        require(finite(covarianceNorm), "Numerical range exceeded; rescale the training data")
+        if (covarianceNorm <= initialCovarianceNorm * tolerance || covarianceNorm == 0.0) {
+          exhausted = true
         } else {
-          // otherwise there are multiple response variables, so compute the X-weights as:
-          // The source code of pls/R/kernelpls.fit.R in R's "pls" package (see https://cran.r-project.org/web/packages/pls/index.html
-          // or http://mevik.net/work/software/pls.html) states that YtXXtY is a symmetric matrix.
-          // The fact that YtXXtY is **wonderful** because all eigenvalues of a real-valued symmetric matrix are real values.
-          // Otherwise, we'd have to potentially handle Complex-valued eigenvalues.
-          YtXXtY = XY.t * XY                                              // XY.t * XY is an (M x M) matrix
-          val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
-          indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
-          q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
-          w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
-        }
+          if (M == 1) {
+            // if there is a single response variable, compute the X-weights as:
+            w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
+          } else {
+            // otherwise there are multiple response variables, so compute the X-weights as:
+            // The source code of pls/R/kernelpls.fit.R in R's "pls" package (see https://cran.r-project.org/web/packages/pls/index.html
+            // or http://mevik.net/work/software/pls.html) states that YtXXtY is a symmetric matrix.
+            // The fact that YtXXtY is **wonderful** because all eigenvalues of a real-valued symmetric matrix are real values.
+            // Otherwise, we'd have to potentially handle Complex-valued eigenvalues.
+            YtXXtY = XY.t * XY                                              // XY.t * XY is an (M x M) matrix
+            val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
+            indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
+            q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
+            w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
+          }
 
-        w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity - the denominator is a scalar
-        r_a = w_a                                                         // loop to compute r_a
-        for (j <- 0 to (a - 1)) {
-          r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
-        }
-        t_a = X * r_a                                                     // compute score vector
-        tt = t_a.t * t_a                                                  // compute t't - (1 x 1) that is auto-converted to a scalar
-        p_a = (X.t * t_a) / tt                                            // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
-        q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
-        XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
+          val weightNorm = norm(w_a)
+          require(finite(weightNorm) && weightNorm > 0.0, "Numerical range exceeded; rescale the training data")
+          w_a = w_a / weightNorm                                     // normalize w_a to unity - the denominator is a scalar
+          r_a = w_a                                                         // loop to compute r_a
+          for (j <- 0 to (a - 1)) {
+            r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
+          }
+          t_a = X * r_a                                                     // compute score vector
+          tt = t_a.t * t_a                                                  // compute t't - (1 x 1) that is auto-converted to a scalar
+          val rotationNorm = norm(r_a)
+          require(finite(tt) && finite(rotationNorm), "Numerical range exceeded; rescale the training data")
+          if (rotationNorm <= tolerance || tt <= math.pow(tolerance * xNorm * rotationNorm, 2)) {
+            exhausted = true
+          } else {
+            p_a = (X.t * t_a) / tt                                            // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
+            q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
+            require(p_a.valuesIterator.forall(finite) && q_a.valuesIterator.forall(finite),
+              "Numerical range exceeded; rescale the training data")
+            XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
 
-        // update loadings and weights
-        W(::, a) := w_a
-        P(::, a) := p_a
-        Q(::, a) := q_a
-        R(::, a) := r_a
+            // update loadings and weights
+            W(::, a) := w_a
+            P(::, a) := p_a
+            Q(::, a) := q_a
+            R(::, a) := r_a
+            a += 1
+          }
+        }
       }
-      val beta = R * Q.t // compute the regression coefficients; (K x M)
-
-      Model(beta, W, P, Q, R)
+      finishModel(W, P, Q, R, a)
     }
 
 
@@ -245,21 +242,18 @@ object DayalMcGregor {
     // Y = X * B + e
     // predict just ignores the error term, since it only consists of the residuals
     def predict(model: Model, X: DenseMatrix[Double]): DenseMatrix[Double] = {
-      X * model.Beta
+      require(X.cols == model.Beta.rows, "Prediction X has the wrong number of predictors")
+      require(X.valuesIterator.forall(finite), "Prediction values must be finite")
+      val prediction = X * model.Beta
+      require(prediction.valuesIterator.forall(finite), "Numerical range exceeded; rescale the prediction data")
+      prediction
     }
 
     def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[Model] = {
+      validateTraining(X, Y, A)
+      require(X.rows >= 2, "Standardization needs at least two training observations")
       val (standardizedX, factorsX) = Standardize.centerAndScaleColumnsReturningFactors(X)
       val (standardizedY, factorsY) = Standardize.centerAndScaleColumnsReturningFactors(Y)
-      // println("standardizeAndTrain")
-      // println("standardizedX")
-      // println(standardizedX)
-      // println("factorsX")
-      // println(factorsX)
-      // println("standardizedY")
-      // println(standardizedY)
-      // println("factorsY")
-      // println(factorsY)
       val model = train(standardizedX, standardizedY, A)
       StandardizedModel(model, factorsX, factorsY)
     }
@@ -274,9 +268,7 @@ object DayalMcGregor {
 
   }
 
-  // Algorithm2 doesn't work if any column in X or Y is all zeros.
-  // Algorithm2 may be unable to train a model if X has duplicate columns, which will be the case if X has any column that is a scalar-multiple
-  //   of another column in X, and is subsequently mean-centered and scaled before being trained.
+  // Cross-product kernel formulation, with the same stopping rules as Algorithm1.
   object Algorithm2 extends PlsModel[Model]{
     // X - predictor variables matrix (N x K)
     // Y - response variables matrix (N x M)
@@ -310,105 +302,87 @@ object DayalMcGregor {
      * A - number of components in PLS model
      */
     def train(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): Model = {
+      validateTraining(X, Y, A)
+      val limit = math.min(A, math.min(X.rows, X.cols))
       val K = X.cols // number of columns in X - number of predictor variables
       val M = Y.cols // number of columns in Y - number of response variables
       val N = X.rows // number of rows in X === number of rows in Y - number of observations of predictor and response variables
-      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
-      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
-      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, A)        // (M x A)
-      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, A)        // (K x A)
+      val W: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
+      val P: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
+      val Q: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, limit)        // (M x A)
+      val R: DenseMatrix[Double] = DenseMatrix.zeros[Double](K, limit)        // (K x A)
       var YtXXtY: DenseMatrix[Double] = DenseMatrix.zeros[Double](M, M)   // (M x M) matrix
       var w_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of W
-      var p_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (K x 1) - column vector of P
+      var p_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of P
       var q_a: DenseVector[Double] = DenseVector.zeros[Double](M)         // (M x 1) - column vector of Q
       var r_a: DenseVector[Double] = DenseVector.zeros[Double](K)         // (K x 1) - column vector of R
       var tt: Double = 0.0
       var indexOfLargestEigenvalue: Int = 0
-      var j: Int = 0
 
-//      println("***")
-//      println(X.t)
-//      println(Y)
 
       var XY: DenseMatrix[Double] = X.t * Y                               // compute the covariance matrices; (K x M) matrix
       val XX: DenseMatrix[Double] = X.t * X                               // (K x K) matrix
 
-//      println("XX")
-//      println(XX)
-//      println("XY")
-//      println(XY)
 
-      // A = number of PLS components to compute
-      for (a <- 0 to (A - 1)) {
-        if (M == 1) {
-          // if there is a single response variable, compute the X-weights as:
-          w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
+      val initialCovarianceNorm = matrixNorm(XY)
+      val xNorm = matrixNorm(X)
+      require(finite(initialCovarianceNorm) && finite(xNorm), "Numerical range exceeded; rescale the training data")
+      val tolerance = 64 * math.ulp(1.0) * math.max(N, math.max(K, M))
+      var a = 0
+      var exhausted = false
+      while (a < limit && !exhausted) {
+        val covarianceNorm = matrixNorm(XY)
+        require(finite(covarianceNorm), "Numerical range exceeded; rescale the training data")
+        if (covarianceNorm <= initialCovarianceNorm * tolerance || covarianceNorm == 0.0) {
+          exhausted = true
         } else {
-          // otherwise there are multiple response variables, so compute the X-weights as:
-          // The source code of pls/R/kernelpls.fit.R in R's "pls" package (see https://cran.r-project.org/web/packages/pls/index.html
-          // or http://mevik.net/work/software/pls.html) states that YtXXtY is a symmetric matrix.
-          // The fact that YtXXtY is **wonderful** because all eigenvalues of a real-valued symmetric matrix are real values.
-          // Otherwise, we'd have to potentially handle Complex-valued eigenvalues.
-          YtXXtY = XY.t * XY                                              // XY.t * XY is an (M x M) matrix
-          val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
-          indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
-          q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
-          w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
+          if (M == 1) {
+            // if there is a single response variable, compute the X-weights as:
+            w_a = XY.toDenseVector                                          // in this case, XY (K x M) is a column vector (K x 1) since M == 1
+          } else {
+            // otherwise there are multiple response variables, so compute the X-weights as:
+            // The source code of pls/R/kernelpls.fit.R in R's "pls" package (see https://cran.r-project.org/web/packages/pls/index.html
+            // or http://mevik.net/work/software/pls.html) states that YtXXtY is a symmetric matrix.
+            // The fact that YtXXtY is **wonderful** because all eigenvalues of a real-valued symmetric matrix are real values.
+            // Otherwise, we'd have to potentially handle Complex-valued eigenvalues.
+            YtXXtY = XY.t * XY                                              // XY.t * XY is an (M x M) matrix
+            val EigSym(eigenvalues, eigenvectors) = eigSym(YtXXtY)          // eigenvalues is a DenseVector[Double] and eigenvectors is a DenseMatrix[Double]
+            indexOfLargestEigenvalue = argmax(eigenvalues)                  // find index of largest eigenvalue
+            q_a = eigenvectors(::, indexOfLargestEigenvalue)                // find the eigenvector corresponding to the largest eigenvalue; eigenvector is (M x 1)
+            w_a = XY * q_a                                                  // compute X-weights; w_a is (K x 1); expression yields a (K x M) * (M x 1) === (K x 1)
+          }
+
+
+          val weightNorm = norm(w_a)
+          require(finite(weightNorm) && weightNorm > 0.0, "Numerical range exceeded; rescale the training data")
+          w_a = w_a / weightNorm                                     // normalize w_a to unity - the denominator is a scalar
+          r_a = w_a                                                         // loop to compute r_a
+          for (j <- 0 to (a - 1)) {
+            r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
+          }
+          tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
+          val rotationNorm = norm(r_a)
+          require(finite(tt) && finite(rotationNorm), "Numerical range exceeded; rescale the training data")
+          if (rotationNorm <= tolerance || tt <= math.pow(tolerance * xNorm * rotationNorm, 2)) {
+            exhausted = true
+          } else {
+            p_a = (r_a.t * XX).t / tt                                         // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
+            q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
+            require(p_a.valuesIterator.forall(finite) && q_a.valuesIterator.forall(finite),
+              "Numerical range exceeded; rescale the training data")
+            XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
+
+
+            // update loadings and weights
+            W(::, a) := w_a
+            P(::, a) := p_a
+            Q(::, a) := q_a
+            R(::, a) := r_a
+            a += 1
+          }
         }
-
-//        println("0000000000000000000000000000000000000000000000000000000000")
-//        println("w_a")
-//        println(w_a)
-//        println("p_a")
-//        println(p_a)
-//        println("q_a")
-//        println(q_a)
-//        println("r_a")
-//        println(r_a)
-
-        w_a = w_a / sqrt(w_a.t * w_a)                                     // normalize w_a to unity - the denominator is a scalar
-//        println("11111111111111111111111111111 - w_a")
-//        println(w_a)
-        r_a = w_a                                                         // loop to compute r_a
-//        println("22222222222222222222222222222 - r_a")
-//        println(r_a)
-        for (j <- 0 to (a - 1)) {
-          r_a = r_a - ( (P(::, j).t * w_a) * R(::, j) )                   // (K x 1) - ( (1 x K) * (K x 1) ) * (K x 1) === (K x 1) - scalar * (K x 1)
-//          println(r_a)
-        }
-        tt = r_a.t * XX * r_a                                             // compute t't - (1 x 1) that is auto-converted to a scalar
-//        println("33333333333333333333333333333 - tt")
-//        println(tt)
-        p_a = (r_a.t * XX).t / tt                                         // X-loadings - ((K x 1)' * (K x K))' / tt === (K x 1) / tt
-//        println("44444444444444444444444444444 - p_a")
-//        println(p_a)
-        q_a = (r_a.t * XY).t / tt                                         // Y-loadings - ((K x 1)' * (K x M))' / tt === (M x 1) / tt
-//        println("55555555555555555555555555555 - q_a")
-//        println(q_a)
-        XY = XY - ((p_a * q_a.t) * tt)                                    // XtY deflation
-//        println("66666666666666666666666666666 - XY")
-//        println(XY)
-
-//        println("777777777777777777777777777777777777777777777777777777777777")
-//        println("tt", tt)
-//        println("w_a")
-//        println(w_a)
-//        println("p_a")
-//        println(p_a)
-//        println("q_a")
-//        println(q_a)
-//        println("r_a")
-//        println(r_a)
-
-        // update loadings and weights
-        W(::, a) := w_a
-        P(::, a) := p_a
-        Q(::, a) := q_a
-        R(::, a) := r_a
       }
-      val beta = R * Q.t // compute the regression coefficients; (K x M)
-
-      Model(beta, W, P, Q, R)
+      finishModel(W, P, Q, R, a)
     }
 
     def trainAndComputeVIP(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): (Model, DenseVector[Double]) = {
@@ -420,21 +394,18 @@ object DayalMcGregor {
     // Y = X * B + e
     // predict just ignores the error term, since it only consists of the residuals
     def predict(model: Model, X: DenseMatrix[Double]): DenseMatrix[Double] = {
-      X * model.Beta
+      require(X.cols == model.Beta.rows, "Prediction X has the wrong number of predictors")
+      require(X.valuesIterator.forall(finite), "Prediction values must be finite")
+      val prediction = X * model.Beta
+      require(prediction.valuesIterator.forall(finite), "Numerical range exceeded; rescale the prediction data")
+      prediction
     }
 
     def standardizeAndTrain(X: DenseMatrix[Double], Y: DenseMatrix[Double], A: Int): StandardizedModel[Model] = {
+      validateTraining(X, Y, A)
+      require(X.rows >= 2, "Standardization needs at least two training observations")
       val (standardizedX, factorsX) = Standardize.centerAndScaleColumnsReturningFactors(X)
       val (standardizedY, factorsY) = Standardize.centerAndScaleColumnsReturningFactors(Y)
-//      println("standardizeAndTrain")
-//      println("standardizedX")
-//      println(standardizedX)
-//      println("factorsX")
-//      println(factorsX)
-//      println("standardizedY")
-//      println(standardizedY)
-//      println("factorsY")
-//      println(factorsY)
       val model = train(standardizedX, standardizedY, A)
       StandardizedModel(model, factorsX, factorsY)
     }

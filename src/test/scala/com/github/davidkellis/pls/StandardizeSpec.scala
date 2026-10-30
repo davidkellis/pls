@@ -4,6 +4,15 @@ import breeze.linalg._
 import org.scalatest._
 
 class StandardizeSpec extends FlatSpec {
+   "Standardize module" should "round-trip positive, negative and zero constant columns" in {
+     val m = DenseMatrix((9.5, -2.0, 0.0), (9.5, -2.0, 0.0), (9.5, -2.0, 0.0))
+     val (values, factors) = Standardize.centerAndScaleColumnsReturningFactors(m)
+     assert(values === DenseMatrix.zeros[Double](3, 3))
+     assert(factors.meanOfColumns === DenseMatrix((9.5, -2.0, 0.0)))
+     assert(factors.stdDevOfColumns === DenseMatrix((1.0, 1.0, 1.0)))
+     assert(Standardize.denormalizeCenteredAndScaledColumns(values, factors.meanOfColumns, factors.stdDevOfColumns) === m)
+   }
+
    "Standardize module" should "mean center columns in a matrix" in {
      val M = DenseMatrix((1.0, 2.0), (2.0, 4.0), (3.0, 6.0), (4.0, 8.0), (5.0, 10.0))
 
@@ -15,10 +24,10 @@ class StandardizeSpec extends FlatSpec {
      assert(Standardize.meanCenterColumnsWithMeans(M, expectedColumnMeans) === expectedMeanCenteredM)
    }
 
-   it should "mean-center a column containing one distinct value by treating that column as having mean 0.0" in {
+   it should "center constant columns to zero and retain their actual means" in {
      val M = DenseVector(3.0, 3.0, 3.0).toDenseMatrix.t    // a (3 x 1)
-     val expectedMeanCenteredM = DenseVector(3.0, 3.0, 3.0).toDenseMatrix.t    // a (3 x 1)
-     val expectedColumnMeans = DenseMatrix((0.0))
+     val expectedMeanCenteredM = DenseVector(0.0, 0.0, 0.0).toDenseMatrix.t    // a (3 x 1)
+     val expectedColumnMeans = DenseMatrix((3.0))
      assert(Standardize.meanCenterColumns(M) === expectedMeanCenteredM)
      assert(Standardize.meanCenterColumns2(M) === (expectedMeanCenteredM, expectedColumnMeans))
    }
@@ -49,10 +58,10 @@ class StandardizeSpec extends FlatSpec {
      assert(Standardize.scaleColumnsWithStdDevs(M, expectedColumnStdDev) === expectedScaledM)
    }
 
-   it should "scale a column containing one distinct value by dividing the column by the one common value, yielding a scaled column of 1.0s" in {
+   it should "use unit scale for constant columns" in {
      val M = DenseVector(3.0, 3.0, 3.0).toDenseMatrix.t    // a (3 x 1)
-     val expectedScaledM = DenseVector(1.0, 1.0, 1.0).toDenseMatrix.t    // a (3 x 1)
-     val expectedColumnStdDev = DenseMatrix((3.0))
+     val expectedScaledM = DenseVector(3.0, 3.0, 3.0).toDenseMatrix.t    // a (3 x 1)
+     val expectedColumnStdDev = DenseMatrix((1.0))
      assert(Standardize.scaleColumns(M) === expectedScaledM)
      assert(Standardize.scaleColumns2(M) === (expectedScaledM, expectedColumnStdDev))
    }
